@@ -1,0 +1,3 @@
+[submodule "src/data/pytorch_nyuv2"]
+	path = src/data/pytorch_nyuv2
+	url = https://github.com/xapharius/pytorch-nyuv2.git
