@@ -1,0 +1,29 @@
+# Example configuration for training on the NYUv2 dataset
+
+# Root directory containing:
+# - train_list.txt, val_list.txt
+# - rgb/, depth/, seg/ subfolders with matching filenames
+
+# Path to the NYUv2 dataset root
+data_root: "/home/francisco.m.ribeiro/PDEEC/VC/Assignment 2/rgbd-align/data/raw/NYUv2"
+
+# Python module containing your model definition (e.g. unet_rgbd.py)
+model_module: "models.baselines.unet_rgbd"
+# Class name of the model to instantiate
+model_class: "UNetResNet"
+
+# Encoder backbone and weight options
+backbone: "resnet34"
+pretrained: true          # whether to load pretrained ImageNet weights
+freeze_encoder: true     # if true, encoder weights are frozen
+
+# Training parameters
+num_classes: 14           # number of segmentation output channels
+batch_size: 8
+epochs: 50
+lr: 1e-4
+weight_decay: 1e-5
+num_workers: 8
+
+# Directory where checkpoints will be saved
+out_dir: "../results/checkpoints"

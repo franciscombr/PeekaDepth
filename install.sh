@@ -1,0 +1,1 @@
+pip install -e ./src/data/pytorch_nyuv2
