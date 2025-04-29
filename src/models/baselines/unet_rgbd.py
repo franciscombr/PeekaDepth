@@ -26,13 +26,13 @@ class UNetResNet(nn.Module):
     Outputs a segmentation map at the same spatial resolution as the input, using
     learnable transpose convolutions for upsampling.
     """
-    def __init__(self, backbone='resnet34', pretrained=True, out_classes=40, freeze_encoder=False):
+    def __init__(self, backbone='resnet34', weights=models.ResNet34_Weights.DEFAULT, out_classes=40, freeze_encoder=False):
         super(UNetResNet, self).__init__()
         # Load pretrained ResNet
         if backbone == 'resnet34':
-            resnet = models.resnet34(pretrained=pretrained)
+            resnet = models.resnet34(weights=weights)
         elif backbone == 'resnet50':
-            resnet = models.resnet50(pretrained=pretrained)
+            resnet = models.resnet50(weights=weights)
         else:
             raise ValueError(f"Unsupported backbone: {backbone}")
 

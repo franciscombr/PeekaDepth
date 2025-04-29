@@ -8,12 +8,12 @@
 #data_root: "/nas-ctm01/datasets/public/NYUv2"
 data_root: "/home/francisco.m.ribeiro/PDEEC/VC/Assignment 2/rgbd-align/data/raw/NYUv2"
 # Python module containing your model definition (e.g. unet_rgbd.py)
-model_module: "models.baselines.unet_rgbd"
+model_module: "models.vfms.dinov2_linear_decoder"
 # Class name of the model to instantiate
-model_class: "UNetResNet"
+model_class: "DINOv2SegmentationModel"
 
 # Encoder backbone and weight options
-backbone: "resnet34"
+backbone: "dinov2_vitl14"
 pretrained: true          # whether to load pretrained ImageNet weights
 freeze_encoder: true     # if true, encoder weights are frozen
 

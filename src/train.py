@@ -21,8 +21,18 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
         depth = depth.to(device)
         seg = seg.to(device)
 
-        # Concatenate RGB and depth to form 4-channel input
-        inputs = torch.cat([rgb, depth], dim=1)
+        #if getattr(model, "requires_patch_divisible_input", False):
+        #    patch_size = getattr(model, "patch_size", 14)
+        #    new_height =  (rgb.shape[2] // patch_size) * patch_size 
+        #    new_width =  (rgb.shape[3] // patch_size) * patch_size 
+        #    rgb = torch.nn.functional.interpolate(rgb, size=(new_height, new_width), mode='bilinear', align_corners = False)
+        #    depth = torch.nn.functional.interpolate(depth, size=(new_height, new_width), mode='bilinear', align_corners = False)
+        if getattr(model, "depth_info", True):
+            # Concatenate RGB and depth to form 4-channel input
+            inputs = torch.cat([rgb, depth], dim=1)
+        else:
+            inputs = rgb
+        
         # Segmentation mask: remove channel dim to shape [B, H, W]
         targets = seg.squeeze(1)
 
@@ -68,7 +78,7 @@ def main():
     model_module   = cfg['model_module']
     model_class    = cfg.get('model_class', 'UNetResNet')
     backbone       = cfg.get('backbone', 'resnet34')
-    pretrained     = cfg.get('pretrained', True)
+    weights        = cfg.get('weights', 'models.ResNet34_Weights.DEFAULT')
     freeze_encoder = cfg.get('freeze_encoder', False)
     num_classes    = int(cfg.get('num_classes', 40))
     batch_size     = int(cfg.get('batch_size', 4))
@@ -114,13 +124,13 @@ def main():
     mod = importlib.import_module(model_module)
     ModelClass = getattr(mod, model_class)
     model = ModelClass(backbone=backbone,
-                       pretrained=pretrained,
+                       
                        out_classes=num_classes,
                        freeze_encoder=freeze_encoder)
     model = model.to(device)
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss(ignore_index=255)
+    criterion = nn.CrossEntropyLoss(ignore_index=0)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     # Prepare output directory
