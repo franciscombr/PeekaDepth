@@ -7,4 +7,4 @@
 #SBATCH --error=slurm_%x.%j.err   # File containing STDERR output. If ommited, use STDOUT.
 
 # Commands / scripts to run (e.g., python3 train.py)
-python3 src/train.py src/config/example_config.yaml
+python3 src/train.py --config src/config/example_config.yaml
