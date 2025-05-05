@@ -5,8 +5,8 @@
 # - rgb/, depth/, seg/ subfolders with matching filenames
 
 # Path to the NYUv2 dataset root
-#data_root: "/nas-ctm01/datasets/public/NYUv2"
-data_root: "/home/francisco.m.ribeiro/PDEEC/VC/Assignment 2/rgbd-align/data/raw/NYUv2"
+data_root: "/nas-ctm01/datasets/public/NYUv2"
+#data_root: "/home/francisco.m.ribeiro/PDEEC/VC/Assignment 2/rgbd-align/data/raw/NYUv2"
 # Python module containing your model definition (e.g. unet_rgbd.py)
 model_module: "models.vfms.dinov2_linear_decoder"
 # Class name of the model to instantiate
