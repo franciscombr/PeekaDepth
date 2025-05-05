@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]          # build backend
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytorch-nyuv2"                   # the name people will put in pip install
+version = "0.0.0"                        # keep 0‑version; you’re vendoring
+description = "NYU‑Depth V2 dataset loader for PyTorch"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{ name = "Original authors & RGBD‑Align" }]
+
+dependencies = [
+  "torch",
+  "torchvision",
+  "h5py",
+  "Pillow"
+]
+
+[project.urls]
+Repository = "https://github.com/xapharius/pytorch-nyuv2"
