@@ -11,6 +11,7 @@ class DINOv2SegmentationModel(nn.Module):
         self.backbone = torch.hub.load('facebookresearch/dinov2', backbone)
         self.out_classes = out_classes
         self.linear_head = nn.Linear(self.backbone.embed_dim, out_classes)
+        self.depth_info = False
 
     def forward(self, x):
         new_height =  (x.shape[2] // self.patch_size) * self.patch_size 
