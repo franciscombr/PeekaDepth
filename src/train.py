@@ -9,6 +9,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
+import wandb
+
 from nyuv2 import NYUv2
 
 
@@ -73,6 +75,16 @@ def main():
     with open(args.config, 'r') as f:
         cfg = yaml.safe_load(f)
 
+
+    # ── W&B init ────────────────────────────────────────────────────────────
+    wandb.init(
+        project="rgbd_fusion",
+        entity="fmribeiro",  # replace with your W&B username/team
+        config=cfg
+    )
+    config = wandb.config
+
+
     # Extract config parameters
     data_root      = cfg['data_root']
     model_module   = cfg['model_module']
@@ -129,6 +141,9 @@ def main():
                        freeze_encoder=freeze_encoder)
     model = model.to(device)
 
+    # watch model to log gradients & weights
+    wandb.watch(model, log="all", log_freq=50)
+
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss(ignore_index=0)
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
@@ -142,6 +157,15 @@ def main():
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss = evaluate(model, val_loader, criterion, device)
         print(f"Epoch {epoch:03d}/{epochs:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+
+        # log metrics to W&B
+        wandb.log({
+            "epoch":       epoch,
+            "train_loss":  train_loss,
+            "val_loss":    val_loss,
+            "lr":          optimizer.param_groups[0]['lr']
+        })
+
 
         # Checkpoint best model
         if val_loss < best_val_loss:
