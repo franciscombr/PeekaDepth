@@ -35,7 +35,6 @@ def train_one_epoch(model, loader, criterion, optimizer, device):
             
         else:
             inputs = rgb
-        print(model.depth_info, inputs.shape)
         # Segmentation mask: remove channel dim to shape [B, H, W]
         targets = seg.squeeze(1)
 
@@ -57,8 +56,13 @@ def evaluate(model, loader, criterion, device):
             rgb = rgb.to(device)
             depth = depth.to(device)
             seg = seg.to(device)
+            if getattr(model, "depth_info", True):
+                # Concatenate RGB and depth to form 4-channel input
+                inputs = torch.cat([rgb, depth], dim=1)
+            
+            else:
+                inputs = rgb
 
-            inputs = torch.cat([rgb, depth], dim=1)
             targets = seg.squeeze(1)
 
             outputs = model(inputs)

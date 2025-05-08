@@ -16,7 +16,7 @@ class DINOv2SegmentationModel(nn.Module):
         new_height =  (x.shape[2] // self.patch_size) * self.patch_size 
         new_width =  (x.shape[3] // self.patch_size) * self.patch_size 
         x_resized = torch.nn.functional.interpolate(x, size=(new_height, new_width), mode='bilinear', align_corners = False)
-
+        
         features = self.backbone.get_intermediate_layers(x_resized, n=1)[0]  # Shape: (B, N, C)
         B, N, C = features.shape
         H = (new_height // self.patch_size) 
