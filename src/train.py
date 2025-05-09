@@ -1,3 +1,4 @@
+import enum
 import os
 import argparse
 import importlib
@@ -16,35 +17,30 @@ import wandb
 from nyuv2 import NYUv2
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device):
+def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_steps):
     model.train()
     running_loss = 0.0
-    for rgb, seg, depth in loader:
+    optimizer.zero_grad()
+    for step, (rgb, seg, depth) in enumerate(loader):
         # Move inputs to device
         rgb = rgb.to(device)
         depth = depth.to(device)
         seg = seg.to(device)
 
-        #if getattr(model, "requires_patch_divisible_input", False):
-        #    patch_size = getattr(model, "patch_size", 14)
-        #    new_height =  (rgb.shape[2] // patch_size) * patch_size 
-        #    new_width =  (rgb.shape[3] // patch_size) * patch_size 
-        #    rgb = torch.nn.functional.interpolate(rgb, size=(new_height, new_width), mode='bilinear', align_corners = False)
-        #    depth = torch.nn.functional.interpolate(depth, size=(new_height, new_width), mode='bilinear', align_corners = False)
         if getattr(model, "depth_info", True):
-            # Concatenate RGB and depth to form 4-channel input
             inputs = torch.cat([rgb, depth], dim=1)
-            
         else:
             inputs = rgb
         # Segmentation mask: remove channel dim to shape [B, H, W]
         targets = seg.squeeze(1)
 
-        optimizer.zero_grad()
         outputs = model(inputs)
-        loss = criterion(outputs, targets)
+        loss = criterion(outputs, targets) / grad_accum_steps
         loss.backward()
-        optimizer.step()
+
+        if (step + 1) % grad_accum_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
 
         running_loss += loss.item() * inputs.size(0)
     return running_loss / len(loader.dataset)
@@ -148,6 +144,7 @@ def main():
     weight_decay   = float(cfg.get('weight_decay', 1e-5))
     num_workers    = int(cfg.get('num_workers', 4))
     out_dir        = cfg.get('out_dir', './checkpoints')
+    grad_accum_steps = int(cfg.get('gradient_accumulation_steps',1))
 
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -203,7 +200,7 @@ def main():
 
     # Training loop
     for epoch in range(1, epochs + 1):
-        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
+        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps)
         val_loss = evaluate(model, val_loader, criterion, device)
         train_metrics = evaluate_metrics(model, train_loader, device, num_classes, ignore_index=0)
         val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, ignore_index=0)
