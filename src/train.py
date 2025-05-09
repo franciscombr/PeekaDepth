@@ -214,9 +214,7 @@ def main():
             f"Train Loss: {train_loss:.4f} | "
             f"mIoU(train): {train_metrics['val_mIoU']:.4f} | "
             f"ECE(train):  {train_metrics['val_ECE']:.4f} | "
-            f"AUROC(train):{train_metrics['val_AUROC']:.4f} || "
-            f"Val Loss:   {val_loss:.4f} | "
-            f"mIoU(val):   {val_metrics['val_mIoU']:.4f} | "
+            f"AUROC(train):{train_metrics['val_AUROC']:.4f} || " f"Val Loss:   {val_loss:.4f} | " f"mIoU(val):   {val_metrics['val_mIoU']:.4f} | "
             f"ECE(val):    {val_metrics['val_ECE']:.4f} | "
             f"AUROC(val):  {val_metrics['val_AUROC']:.4f}"
         )
