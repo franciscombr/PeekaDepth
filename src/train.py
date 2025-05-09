@@ -178,6 +178,8 @@ def main():
         download = True, 
     )
 
+    print(train_raw[0])
+
     output_size = (480, 640)
     joint_tf = JointAugment(output_size)
     train_ds = AugmentedDataset(train_raw, joint_tf)
