@@ -60,7 +60,11 @@ class JointAugment:
         # 6) ToTensor; keep seg as LongTensor mask
         #rgb   = TF.to_tensor(rgb)
         #depth = TF.to_tensor(depth)
-        seg   = torch.from_numpy(np.array(seg)).long()
+        #seg   = torch.from_numpy(np.array(seg)).long()
+        if isinstance(seg, torch.Tensor):
+            seg = seg.squeeze(0).long()
+        else:
+            seg = torch.as_tensor(np.array(seg), dtype=torch.long)
         return rgb, depth, seg
 
 class AugmentedDataset(Dataset):
