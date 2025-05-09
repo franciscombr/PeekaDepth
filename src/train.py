@@ -110,6 +110,20 @@ def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=
         "val_AUROC":     auc
     }
 
+def make_optimizer_from_cfg(model: nn.Module, cfg: Dict) -> torch.optim.Optimizer:
+    optim_cls = getattr(torch.optim, cfg["name"])
+    pg_kwargs = []
+    for pg in cfg["param_groups"]:
+        submod = getattr(model, pg["module"], None)
+        if submod is None:
+            raise ValueError(f"Model has no attribute '{pg['module']}")
+        pg_kwargs.append({
+            "params": submod.parameters(),
+            "lr": pg["lr"],
+            "weight_decay": cfg.get("weight_decay",0.0),
+        })
+    return optim_cls(pg_kwargs)
+
 def main():
     parser = argparse.ArgumentParser(description="Train a segmentation model on NYUv2 RGB-D data using a config file.")
     parser.add_argument('--config', type=str, required=True,
@@ -192,7 +206,12 @@ def main():
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss(ignore_index=0)
-    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    #optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
+    if cfg["lr_scheduler"]["name"] == "poly":
+        def lr_lambda(step):
+            return (1 - step/cfg.lr_scheduler.max_iters)**cfg.lr_scheduler.power
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Prepare output directory
     os.makedirs(out_dir, exist_ok=True)

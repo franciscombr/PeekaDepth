@@ -22,9 +22,20 @@ num_classes: 14           # number of segmentation output channels
 batch_size: 8
 gradient_accumulation_steps: 2 
 epochs: 40
-lr: 1e-5
-weight_decay: 0.05 
 num_workers: 8
+
+optimizer:
+  name: AdamW
+  weight_decay: 0.05
+  param_groups:
+    - module: encoder
+      lr: 1e-5
+    - module: decoder
+
+lr_scheduler: 
+  name: poly
+  power: 0.9
+  max_iters: 30000
 
 # Directory where checkpoints will be saved
 out_dir: "../results/checkpoints"
