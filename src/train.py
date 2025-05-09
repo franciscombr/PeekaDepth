@@ -165,17 +165,30 @@ def main():
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    
+     # Data transformations
+    rgb_tf = transforms.Compose([
+        transforms.ToTensor()
+    ]) 
+    depth_tf = transforms.ToTensor()
+    seg_tf = transforms.ToTensor()
+
     # Datasets and DataLoaders
     train_raw = NYUv2(
         root = data_root, 
         train = True,
-        download = True, 
+        download = True,
+        rgb_transform = rgb_tf, 
+        depth_transform = depth_tf,
+        seg_transform = seg_tf
+
     )
     val_ds = NYUv2(
         root = data_root, 
         train = False,
         download = True, 
+        rgb_transform = rgb_tf, 
+        depth_transform = depth_tf,
+        seg_transform = seg_tf
     )
 
     print(train_raw[0])
