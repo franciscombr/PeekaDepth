@@ -29,7 +29,16 @@ class JointAugment:
 
         # 3) Scale
         scale = random.uniform(*self.scale_range)
-        new_h, new_w = int(rgb.height * scale), int(rgb.width * scale)
+        # guard for both PIL.Image and torch.Tensor
+        if hasattr(rgb, "shape"):
+            # rgb is Tensor in C×H×W
+            _, h, w = rgb.shape
+        else:
+            # rgb is PIL Image
+            w, h = rgb.size
+        new_h = int(h * scale)
+        new_w = int(w * scale)
+
         rgb   = TF.resize(rgb,   (new_h, new_w), interpolation=Image.BILINEAR)
         depth = TF.resize(depth, (new_h, new_w), interpolation=Image.NEAREST)
         seg   = TF.resize(seg,   (new_h, new_w), interpolation=Image.NEAREST)
