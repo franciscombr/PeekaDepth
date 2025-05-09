@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc
+
 
 import wandb
 
@@ -69,6 +71,48 @@ def evaluate(model, loader, criterion, device):
             loss = criterion(outputs, targets)
             running_loss += loss.item() * inputs.size(0)
     return running_loss / len(loader.dataset)
+
+def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=10):
+    model.eval()
+    all_conf, all_pred, all_tgt = [], [], []
+    with torch.no_grad():
+        for rgb, seg, depth in loader:
+            rgb, depth, seg = rgb.to(device), depth.to(device), seg.to(device)
+            inputs = torch.cat([rgb, depth], dim=1) if getattr(model, "depth_info", True) else rgb
+
+            logits = model(inputs)
+            probs  = torch.softmax(logits, dim=1)
+
+            conf, pred = probs.max(dim=1)
+            tgt = seg.squeeze(1)
+
+            all_conf.append(conf.cpu().flatten())
+            all_pred.append(pred.cpu().flatten())
+            all_tgt.append(tgt.cpu().flatten())
+
+    all_conf = torch.cat(all_conf).numpy()
+    all_pred = torch.cat(all_pred).numpy()
+    all_tgt  = torch.cat(all_tgt).numpy()
+
+    # build mask of valid pixels
+    valid_mask = all_tgt != ignore_index
+
+    # confusion matrix / IoUs
+    cm    = compute_confusion_matrix(all_pred, all_tgt, num_classes, ignore_index)
+    miou  = mean_iou(cm)
+    worst = worst_class_iou(cm)
+
+    # calibration & AUROC
+    correctness = (all_pred == all_tgt).astype(int)
+    ece = expected_calibration_error(all_conf, correctness, n_bins, ignore_mask=valid_mask)
+    auc = pixel_auroc(all_conf, correctness, ignore_mask=valid_mask)
+
+    return {
+        "val_mIoU":      miou,
+        "val_worst_IoU": worst,
+        "val_ECE":       ece,
+        "val_AUROC":     auc
+    }
 
 def main():
     parser = argparse.ArgumentParser(description="Train a segmentation model on NYUv2 RGB-D data using a config file.")
@@ -161,14 +205,21 @@ def main():
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss = evaluate(model, val_loader, criterion, device)
-        print(f"Epoch {epoch:03d}/{epochs:03d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+        metrics  = evaluate_metrics(model, val_loader, device, num_classes, ignore_index=0)
 
-        # log metrics to W&B
+        print(
+            f"Epoch {epoch:03d}/{epochs:03d} | "
+            f"Train: {train_loss:.4f} | Val: {val_loss:.4f} | "
+            f"mIoU: {metrics['val_mIoU']:.4f} | "
+            f"ECE: {metrics['val_ECE']:.4f} | "
+            f"AUROC: {metrics['val_AUROC']:.4f}"
+        )
         wandb.log({
-            "epoch":       epoch,
-            "train_loss":  train_loss,
-            "val_loss":    val_loss,
-            "lr":          optimizer.param_groups[0]['lr']
+            "epoch":      epoch,
+            "train_loss": train_loss,
+            "val_loss":   val_loss,
+            **metrics,
+            "lr":         optimizer.param_groups[0]['lr']
         })
 
 
