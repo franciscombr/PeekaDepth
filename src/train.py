@@ -205,22 +205,35 @@ def main():
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
         val_loss = evaluate(model, val_loader, criterion, device)
-        metrics  = evaluate_metrics(model, val_loader, device, num_classes, ignore_index=0)
+        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, ignore_index=0)
+        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, ignore_index=0)
+
 
         print(
             f"Epoch {epoch:03d}/{epochs:03d} | "
-            f"Train: {train_loss:.4f} | Val: {val_loss:.4f} | "
-            f"mIoU: {metrics['val_mIoU']:.4f} | "
-            f"ECE: {metrics['val_ECE']:.4f} | "
-            f"AUROC: {metrics['val_AUROC']:.4f}"
+            f"Train Loss: {train_loss:.4f} | "
+            f"mIoU(train): {train_metrics['val_mIoU']:.4f} | "
+            f"ECE(train):  {train_metrics['val_ECE']:.4f} | "
+            f"AUROC(train):{train_metrics['val_AUROC']:.4f} || "
+            f"Val Loss:   {val_loss:.4f} | "
+            f"mIoU(val):   {val_metrics['val_mIoU']:.4f} | "
+            f"ECE(val):    {val_metrics['val_ECE']:.4f} | "
+            f"AUROC(val):  {val_metrics['val_AUROC']:.4f}"
         )
         wandb.log({
-            "epoch":      epoch,
-            "train_loss": train_loss,
-            "val_loss":   val_loss,
-            **metrics,
-            "lr":         optimizer.param_groups[0]['lr']
+            "epoch":        epoch,
+            "train_loss":   train_loss,
+            "val_loss":     val_loss,
+            # prefix the metrics so you can plot train vs val
+            "train_mIoU":   train_metrics['val_mIoU'],
+            "train_ECE":    train_metrics['val_ECE'],
+            "train_AUROC":  train_metrics['val_AUROC'],
+            "val_mIoU":     val_metrics['val_mIoU'],
+            "val_ECE":      val_metrics['val_ECE'],
+            "val_AUROC":    val_metrics['val_AUROC'],
+            "lr":           optimizer.param_groups[0]['lr']
         })
+
 
 
         # Checkpoint best model
