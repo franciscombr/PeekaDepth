@@ -191,7 +191,6 @@ def main():
         seg_transform = seg_tf
     )
 
-
     output_size = (480, 640)
     joint_tf = JointAugment(output_size)
     train_ds = AugmentedDataset(train_raw, joint_tf)
