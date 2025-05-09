@@ -218,6 +218,7 @@ def main():
     if cfg["lr_scheduler"]["name"] == "poly":
         def lr_lambda(step):
             return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
+        print(lr_lambda(2))
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Prepare output directory
