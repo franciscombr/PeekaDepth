@@ -19,10 +19,10 @@ class JointAugment:
         self.scale_range = scale_range
         self.color_jitter = transforms.ColorJitter(**color_jitter_params)
 
-    def __call__(self, rgb, depth, seg):
+    def __call__(self, rgb, seg, depth):
         # 1) Flip
         if random.random() < self.flip_prob:
-            rgb, depth, seg = TF.hflip(rgb), TF.hflip(depth), TF.hflip(seg)
+            rgb, seg, depth = TF.hflip(rgb), TF.hflip(seg), TF.hflip(depth)
 
         # 2) Color‐jitter RGB only
         rgb = self.color_jitter(rgb)
@@ -65,7 +65,7 @@ class JointAugment:
             seg = seg.squeeze(0).long()
         else:
             seg = torch.as_tensor(np.array(seg), dtype=torch.long)
-        return rgb, depth, seg
+        return rgb, seg, depth
 
 class AugmentedDataset(Dataset):
     def __init__(self, base_ds, joint_tf):
@@ -78,4 +78,4 @@ class AugmentedDataset(Dataset):
     def __getitem__(self, idx):
         # NYUv2 returns (rgb: PIL, seg: PIL, depth: PIL) or vice-versa
         rgb, seg, depth = self.base[idx]
-        return self.joint_tf(rgb, depth, seg)
+        return self.joint_tf(rgb, seg, depth)
