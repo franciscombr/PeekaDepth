@@ -253,8 +253,11 @@ def main():
             "val_mIoU":     val_metrics['val_mIoU'],
             "val_ECE":      val_metrics['val_ECE'],
             "val_AUROC":    val_metrics['val_AUROC'],
-            "lr":           optimizer.param_groups[0]['lr']
+            "lr_encoder":   optimizer.param_groups[0]['lr'],
+            "lr_decoder":   optimizer.param_groups[1]['lr']
         })
+
+        scheduler.step()
 
 
 
