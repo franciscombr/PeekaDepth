@@ -121,8 +121,8 @@ def make_optimizer_from_cfg(model: nn.Module, cfg: Dict) -> torch.optim.Optimize
             raise ValueError(f"Model has no attribute '{pg['module']}")
         pg_kwargs.append({
             "params": submod.parameters(),
-            "lr": pg["lr"],
-            "weight_decay": cfg.get("weight_decay",0.0),
+            "lr": float(pg["lr"]),
+            "weight_decay": float(cfg.get("weight_decay",0.0)),
         })
     return optim_cls(pg_kwargs)
 
@@ -218,7 +218,6 @@ def main():
     if cfg["lr_scheduler"]["name"] == "poly":
         def lr_lambda(step):
             return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
-        print(lr_lambda(2))
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Prepare output directory
