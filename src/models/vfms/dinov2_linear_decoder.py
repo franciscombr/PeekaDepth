@@ -12,11 +12,14 @@ class DINOv2SegmentationModel(nn.Module):
         self.out_classes = out_classes
         self.linear_head = nn.Linear(self.backbone.embed_dim, out_classes)
 
-        if freeze_encoder:
+        def freeze_backbone(self):
             for p in self.backbone.parameters():
                 p.requires_grad = False
             self.backbone.eval()
-        else:
+
+        def unfreeze_backbone(self):
+            for p in self.backbone.parameters():
+                p.requires_grad = True
             self.backbone.train()
 
     def forward(self, x):

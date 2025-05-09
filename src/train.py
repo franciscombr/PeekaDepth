@@ -195,7 +195,7 @@ def main():
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss(ignore_index=0)
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
 
     # Prepare output directory
     os.makedirs(out_dir, exist_ok=True)
