@@ -12,6 +12,13 @@ class DINOv2SegmentationModel(nn.Module):
         self.out_classes = out_classes
         self.linear_head = nn.Linear(self.backbone.embed_dim, out_classes)
 
+        if freeze_encoder:
+            for p in self.backbone.parameters():
+                p.requires_grad = False
+            self.backbone.eval()
+        else:
+            self.backbone.train()
+
     def forward(self, x):
         new_height =  (x.shape[2] // self.patch_size) * self.patch_size 
         new_width =  (x.shape[3] // self.patch_size) * self.patch_size 
