@@ -191,7 +191,6 @@ def main():
         seg_transform = seg_tf
     )
 
-    print(train_raw[0])
 
     output_size = (480, 640)
     joint_tf = JointAugment(output_size)
