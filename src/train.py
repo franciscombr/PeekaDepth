@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from torchvision import transforms
 from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc
 
+from data.augmentations import JointAugment, AugmentedDataset
 
 import wandb
 
@@ -172,7 +173,7 @@ def main():
     seg_tf = transforms.ToTensor()
 
     # Datasets and DataLoaders
-    train_ds = NYUv2(
+    train_raw = NYUv2(
         root = data_root, 
         train = True,
         download = True, 
@@ -188,6 +189,11 @@ def main():
         depth_transform = depth_tf,
         seg_transform = seg_tf
     )
+
+    output_size = (480, 640)
+    joint_tf = JointAugment(output_size)
+    train_ds = AugmentedDataset(train_raw, joint_tf)
+   
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
                               num_workers=num_workers, pin_memory=True)
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
