@@ -15,7 +15,7 @@ model_class: "DINOv2SegmentationModel"
 # Encoder backbone and weight options
 backbone: "dinov2_vitl14"
 pretrained: true          # whether to load pretrained ImageNet weights
-freeze_encoder: true     # if true, encoder weights are frozen
+freeze_encoder: false     # if true, encoder weights are frozen
 
 # Training parameters
 num_classes: 14           # number of segmentation output channels
