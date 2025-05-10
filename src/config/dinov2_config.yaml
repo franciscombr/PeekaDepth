@@ -8,7 +8,7 @@
 data_root: "/nas-ctm01/datasets/public/NYUv2"
 #data_root: "/home/francisco.m.ribeiro/PDEEC/VC/Assignment 2/rgbd-align/data/raw/NYUv2"
 # Python module containing your model definition (e.g. unet_rgbd.py)
-model_module: "models.vfms.dinov2_linear_decoder"
+model_module: "models.vfms.dinov2_conv_decoder"
 # Class name of the model to instantiate
 model_class: "DINOv2SegmentationModel"
 
