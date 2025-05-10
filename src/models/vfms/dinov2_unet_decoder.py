@@ -36,6 +36,7 @@ class DINOv2SegmentationModel(nn.Module):
     def __init__(self, backbone, out_classes, decoder_cfg=None):
         super().__init__()
         self.requires_patch_divisible_input = True
+        self.depth_info = False
         self.patch_size = 14
         self.encoder = torch.hub.load('facebookresearch/dinov2', backbone)
         C = self.encoder.embed_dim
