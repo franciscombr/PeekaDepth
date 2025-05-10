@@ -12,12 +12,12 @@ class DINOv2SegmentationModel(nn.Module):
         self.out_classes = out_classes
         self.decoder = nn.Linear(self.encoder.embed_dim, out_classes)
 
-        def freeze_encoder(self):
+    def freeze_encoder(self):
             for p in self.encoder.parameters():
                 p.requires_grad = False
             self.encoder.eval()
 
-        def unfreeze_encoder(self):
+    def unfreeze_encoder(self):
             for p in self.encoder.parameters():
                 p.requires_grad = True
             self.encoder.train()
