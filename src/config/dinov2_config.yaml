@@ -36,7 +36,7 @@ optimizer:
 lr_scheduler: 
   name: poly
   power: 0.9
-  max_iters: 30000
+  max_iters: 3600
 
 # Directory where checkpoints will be saved
 out_dir: "../results/checkpoints"

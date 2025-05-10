@@ -19,7 +19,7 @@ import wandb
 from nyuv2 import NYUv2
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_steps):
+def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_steps, scheduler):
     model.train()
     running_loss = 0.0
     optimizer.zero_grad()
@@ -43,6 +43,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_step
         if (step + 1) % grad_accum_steps == 0:
             optimizer.step()
             optimizer.zero_grad()
+            scheduler.step()
 
         running_loss += loss.item() * inputs.size(0)
     return running_loss / len(loader.dataset)
@@ -227,7 +228,7 @@ def main():
 
     # Training loop
     for epoch in range(1, epochs + 1):
-        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps)
+        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler)
         val_loss = evaluate(model, val_loader, criterion, device)
         train_metrics = evaluate_metrics(model, train_loader, device, num_classes, ignore_index=0)
         val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, ignore_index=0)
@@ -257,7 +258,6 @@ def main():
             "lr_decoder":   optimizer.param_groups[1]['lr']
         })
 
-        scheduler.step()
 
 
 
