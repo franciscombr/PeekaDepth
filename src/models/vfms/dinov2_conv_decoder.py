@@ -14,11 +14,9 @@ class DINOv2SegmentationModel(nn.Module):
              nn.Conv2d(self.encoder.embed_dim, 256, kernel_size=3, padding = 1),
              nn.BatchNorm2d(256),
              nn.ReLU(inplace=True),
-             nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
-             nn.BatchNorm2d(128),
-             nn.ReLU(inplace=True),
-             nn.ConvTranspose2d(128, out_classes, kernel_size=2, stride=2)
-        )
+             nn.ConvTranspose2d(256, self.out_classes, kernel_size=self.patch_size, stride=self.patch_size,
+                                padding=0, output_padding=0),
+            )
 
     def freeze_encoder(self):
             for p in self.encoder.parameters():
@@ -41,6 +39,6 @@ class DINOv2SegmentationModel(nn.Module):
         W = (new_width // self.patch_size)
         features = features.permute(0, 2, 1).reshape(B, C, H, W)  # (B, C, H, W)
         logits = self.decoder(features) 
-        logits = logits.permute(0, 3, 1, 2)  # (B, C, H, W)
+        
         logits = F.interpolate(logits, size=x.shape[-2:], mode="bilinear", align_corners=False)
         return logits
