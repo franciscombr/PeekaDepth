@@ -206,8 +206,13 @@ def main():
     ModelClass = getattr(mod, model_class)
     model = ModelClass(backbone=backbone,
                        
-                       out_classes=num_classes,
-                       freeze_encoder=freeze_encoder)
+                       out_classes=num_classes)
+    
+    if freeze_encoder:
+        model.freeze_encoder()
+    else:
+        model.unfreeze_encoder()
+
     model = model.to(device)
 
     # watch model to log gradients & weights

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class DINOv2SegmentationModel(nn.Module):
-    def __init__(self, backbone, out_classes, freeze_encoder):
+    def __init__(self, backbone, out_classes):
         super().__init__()
         self.requires_patch_divisible_input = True
         self.patch_size = 14
