@@ -40,7 +40,7 @@ class DINOv2SegmentationModel(nn.Module):
         H = (new_height // self.patch_size) 
         W = (new_width // self.patch_size)
         features = features.permute(0, 2, 1).reshape(B, C, H, W)  # (B, C, H, W)
-        logits = self.decoder(features.permute(0, 2, 3, 1))  # (B, H, W, C)
+        logits = self.decoder(features) 
         logits = logits.permute(0, 3, 1, 2)  # (B, C, H, W)
         logits = F.interpolate(logits, size=x.shape[-2:], mode="bilinear", align_corners=False)
         return logits
