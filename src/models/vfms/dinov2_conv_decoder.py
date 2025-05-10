@@ -11,7 +11,7 @@ class DINOv2SegmentationModel(nn.Module):
         self.encoder = torch.hub.load('facebookresearch/dinov2', backbone)
         self.out_classes = out_classes
         self.decoder = nn.Sequential(
-             nn.Conv2d(self.encoder.embed_dim, kernel_size=3, padding = 1),
+             nn.Conv2d(self.encoder.embed_dim, 256, kernel_size=3, padding = 1),
              nn.BatchNorm2d(256),
              nn.ReLU(inplace=True),
              nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
