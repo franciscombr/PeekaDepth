@@ -187,13 +187,34 @@ def main():
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+   # Dynamically import and instantiate model
+    mod = importlib.import_module(model_module)
+    ModelClass = getattr(mod, model_class)
+    model = ModelClass(backbone=backbone,
+                       
+                       out_classes=num_classes)
+    
+    if freeze_encoder:
+        model.freeze_encoder()
+    else:
+        model.unfreeze_encoder()
+
+    model = model.to(device)
+
      # Data transformations
     rgb_tf = transforms.Compose([
         transforms.ToTensor()
     ]) 
     depth_tf = transforms.ToTensor()
     seg_tf = transforms.ToTensor()
-    hha_tf = transforms.ToTensor()
+    if getattr(model, "depth_info", True):
+        hha_tf = transforms.ToTensor()
+        depth_tf = transforms.ToTensor()
+    else:
+        hha_tf = None
+        depth_tf = None
+
+
 
     # Datasets and DataLoaders
     train_raw = NYUv2(
@@ -225,19 +246,7 @@ def main():
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
                               num_workers=num_workers, pin_memory=True)
 
-    # Dynamically import and instantiate model
-    mod = importlib.import_module(model_module)
-    ModelClass = getattr(mod, model_class)
-    model = ModelClass(backbone=backbone,
-                       
-                       out_classes=num_classes)
-    
-    if freeze_encoder:
-        model.freeze_encoder()
-    else:
-        model.unfreeze_encoder()
 
-    model = model.to(device)
 
     # watch model to log gradients & weights
     wandb.watch(model, log="all", log_freq=50)
