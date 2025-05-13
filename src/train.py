@@ -23,14 +23,15 @@ def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_step
     model.train()
     running_loss = 0.0
     optimizer.zero_grad()
-    for step, (rgb, seg, depth) in enumerate(loader):
+    for step, (rgb, seg, depth, hha) in enumerate(loader):
         # Move inputs to device
         rgb = rgb.to(device)
         depth = depth.to(device)
         seg = seg.to(device)
+        hha = hha.to(device)
 
         if getattr(model, "depth_info", True):
-            inputs = torch.cat([rgb, depth], dim=1)
+            inputs = torch.cat([rgb, hha], dim=1)
         else:
             inputs = rgb
         # Segmentation mask: remove channel dim to shape [B, H, W]
@@ -53,13 +54,14 @@ def evaluate(model, loader, criterion, device):
     model.eval()
     running_loss = 0.0
     with torch.no_grad():
-        for rgb, seg, depth in loader:
+        for rgb, seg, depth, hha in loader:
             rgb = rgb.to(device)
             depth = depth.to(device)
             seg = seg.to(device)
+            hha = hha.to(device)
             if getattr(model, "depth_info", True):
                 # Concatenate RGB and depth to form 4-channel input
-                inputs = torch.cat([rgb, depth], dim=1)
+                inputs = torch.cat([rgb, hha], dim=1)
             
             else:
                 inputs = rgb
@@ -191,6 +193,7 @@ def main():
     ]) 
     depth_tf = transforms.ToTensor()
     seg_tf = transforms.ToTensor()
+    hha_tf = transforms.ToTensor()
 
     # Datasets and DataLoaders
     train_raw = NYUv2(
@@ -199,7 +202,8 @@ def main():
         download = True,
         rgb_transform = rgb_tf, 
         depth_transform = depth_tf,
-        seg_transform = seg_tf
+        seg_transform = seg_tf,
+        hha_transform = hha_tf
 
     )
     val_ds = NYUv2(
@@ -208,7 +212,8 @@ def main():
         download = True, 
         rgb_transform = rgb_tf, 
         depth_transform = depth_tf,
-        seg_transform = seg_tf
+        seg_transform = seg_tf,
+        hha_transform = hha_tf
     )
 
     output_size = (480, 640)
@@ -239,7 +244,6 @@ def main():
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss(ignore_index=0)
-    #optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
     if cfg["lr_scheduler"]["name"] == "poly":
         def lr_lambda(step):
