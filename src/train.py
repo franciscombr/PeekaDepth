@@ -207,12 +207,10 @@ def main():
     ]) 
     depth_tf = transforms.ToTensor()
     seg_tf = transforms.ToTensor()
-    if getattr(model, "depth_info", True):
-        hha_tf = transforms.ToTensor()
-        depth_tf = transforms.ToTensor()
-    else:
-        hha_tf = None
-        depth_tf = None
+    hha_tf = transforms.ToTensor()
+    depth_tf = transforms.ToTensor()
+    hha_tf = None
+    depth_tf = None
 
 
 
