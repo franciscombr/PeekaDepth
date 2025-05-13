@@ -1,1 +1,3 @@
 data/raw/
+# ignore all Python egg-info directories
+**/*.egg-info/

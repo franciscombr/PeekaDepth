@@ -5,13 +5,14 @@ import copy
 
 class DINOv2SegmentationModel(nn.Module):
     def __init__(self, backbone: str, out_classes: int, 
-                 fusion_block: int = None, fuse_type: str = "add"):
+                 fusion_block: int = None, fuse_type: str = "concat"):
         """
         fusion_block: which transformer block index to fuse at.
                       If None, defaults to halfway through.
         fuse_type: "add"  (element‐wise sum) or "concat" (+ proj back).
         """
         super().__init__()
+        self.depth_info = True
         # load RGB encoder
         self.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
         # duplicate for depth
