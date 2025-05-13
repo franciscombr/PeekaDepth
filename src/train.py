@@ -259,14 +259,25 @@ def main():
 
 
         print(
-            f"Epoch {epoch:03d}/{epochs:03d} | "
-            f"Train Loss: {train_loss:.4f} | "
-            f"mIoU(train): {train_metrics['val_mIoU']:.4f} | "
-            f"ECE(train):  {train_metrics['val_ECE']:.4f} | "
-            f"AUROC(train):{train_metrics['val_AUROC']:.4f} || " f"Val Loss:   {val_loss:.4f} | " f"mIoU(val):   {val_metrics['val_mIoU']:.4f} | "
-            f"ECE(val):    {val_metrics['val_ECE']:.4f} | "
-            f"AUROC(val):  {val_metrics['val_AUROC']:.4f}"
+           f"Epoch {epoch:03d}/{epochs:03d} | "
+           f"Train Loss: {train_loss:.4f} | "
+           f"PixelAcc(train): {train_metrics['val_PixelAccuracy']:.4f} | "
+           f"MeanAcc(train): {train_metrics['val_MeanAccuracy']:.4f} | "
+           f"mIoU(train): {train_metrics['val_MeanIoU']:.4f} | "
+           f"FWIoU(train): {train_metrics['val_FrequencyWeightedIoU']:.4f} | "
+           f"WorstIoU(train): {train_metrics['val_WorstClassIoU']:.4f} | "
+           f"ECE(train): {train_metrics['val_ECE']:.4f} | "
+           f"AUROC(train): {train_metrics['val_AUROC']:.4f} || "
+           f"Val Loss: {val_loss:.4f} | "
+           f"PixelAcc(val): {val_metrics['val_PixelAccuracy']:.4f} | "
+           f"MeanAcc(val): {val_metrics['val_MeanAccuracy']:.4f} | "
+           f"mIoU(val): {val_metrics['val_MeanIoU']:.4f} | "
+           f"FWIoU(val): {val_metrics['val_FrequencyWeightedIoU']:.4f} | "
+           f"WorstIoU(val): {val_metrics['val_WorstClassIoU']:.4f} | "
+           f"ECE(val): {val_metrics['val_ECE']:.4f} | "
+           f"AUROC(val): {val_metrics['val_AUROC']:.4f}"
         )
+
         wandb.log({
           "epoch":                     epoch,
           "train_loss":                train_loss,
@@ -292,9 +303,6 @@ def main():
           "lr_encoder":               optimizer.param_groups[0]['lr'],
           "lr_decoder":               optimizer.param_groups[1]['lr']
         })
-
-
-
 
         # Checkpoint best model
         if val_loss < best_val_loss:
