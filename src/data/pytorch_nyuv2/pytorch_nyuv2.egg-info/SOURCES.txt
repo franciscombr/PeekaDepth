@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+nyuv2/__init__.py
+nyuv2/nyuv2.py
+pytorch_nyuv2.egg-info/PKG-INFO
+pytorch_nyuv2.egg-info/SOURCES.txt
+pytorch_nyuv2.egg-info/dependency_links.txt
+pytorch_nyuv2.egg-info/requires.txt
+pytorch_nyuv2.egg-info/top_level.txt

@@ -9,7 +9,7 @@ rgb_tf   = transforms.Compose([
 ])
 depth_tf = transforms.ToTensor()         # (uint16 PNG → float tensor)
 seg_tf   = transforms.ToTensor()         # (0‑13 ids → will be cast to long)
-
+hha_tf = transforms.ToTensor()
 # ---------- dataset & loader ----------
 train_ds = NYUv2(
     root="data/raw/NYUv2",               # same root as before
@@ -17,7 +17,8 @@ train_ds = NYUv2(
     download=True,                       # first run will fetch / extract PNGs
     rgb_transform=rgb_tf,
     depth_transform=depth_tf,
-    seg_transform=seg_tf                 # NEW: turn on segmentation masks
+    seg_transform=seg_tf,                 # NEW: turn on segmentation masks
+    hha_transform=hha_tf
 )
 train_ld = DataLoader(train_ds, batch_size=32,
                       shuffle=True, num_workers=8, pin_memory=True)

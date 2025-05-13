@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "depth2hha"
+version = "0.1.0"
+description = "Depth→HHA encoder"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.7"
+dependencies = ["numpy>=1.18", "Pillow>=8.0"]
+
+[tool.setuptools.packages.find]
+# look in the project root
+where = ["."]
+# only include the depth2hha package and its subpackages
+include = ["depth2hha", "depth2hha.*"]
+# explicitly ignore the demo folder
+exclude = ["demo*"]

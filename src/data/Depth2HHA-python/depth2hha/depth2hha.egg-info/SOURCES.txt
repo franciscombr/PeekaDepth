@@ -1,0 +1,8 @@
+LICENSE
+README.md
+pyproject.toml
+depth2hha/depth2hha.egg-info/PKG-INFO
+depth2hha/depth2hha.egg-info/SOURCES.txt
+depth2hha/depth2hha.egg-info/dependency_links.txt
+depth2hha/depth2hha.egg-info/requires.txt
+depth2hha/depth2hha.egg-info/top_level.txt

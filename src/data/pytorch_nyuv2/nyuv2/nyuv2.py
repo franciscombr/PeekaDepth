@@ -19,6 +19,8 @@ from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_url
 
+import cv2
+
 
 class NYUv2(Dataset):
     """
@@ -50,6 +52,7 @@ class NYUv2(Dataset):
         seg_transform=None,
         sn_transform=None,
         depth_transform=None,
+        hha_transform=None,
     ):
         """
         Will return tuples based on what data source has been enabled (rgb, seg etc).
@@ -73,6 +76,7 @@ class NYUv2(Dataset):
         self.seg_transform = seg_transform
         self.sn_transform = sn_transform
         self.depth_transform = depth_transform
+        self.hha_transform = hha_transform
 
         self.train = train
         self._split = "train" if train else "test"
@@ -122,7 +126,12 @@ class NYUv2(Dataset):
                 # depth png is uint16
                 img = img.float() / 1e4
             imgs.append(img)
-
+        
+        if self.hha_transform is not None:
+            random.seed(seed)
+            img = Image.open(os.path.join(folder("hha"), self._files[index]))
+            img = self.hha_transform(img)
+            imgs.append(img)
         return imgs
 
     def __len__(self):
@@ -149,6 +158,10 @@ class NYUv2(Dataset):
         fmt_str += "{0}{1}\n".format(
             tmp, self.depth_transform.__repr__().replace("\n", "\n" + " " * len(tmp))
         )
+        tmp = "    HHA Transforms:  "
+        fmt_str += "{0}{1}\n".format(
+            tmp, self.hha_transform.__repr__().replace("\n", "\n" + " " * len(tmp))
+        )
         return fmt_str
 
     def _check_exists(self) -> bool:
@@ -158,12 +171,13 @@ class NYUv2(Dataset):
         try:
             for split in ["train", "test"]:
                 for part, transform in zip(
-                    ["rgb", "seg13", "sn", "depth"],
+                    ["rgb", "seg13", "sn", "depth", "hha"],
                     [
                         self.rgb_transform,
                         self.seg_transform,
                         self.sn_transform,
                         self.depth_transform,
+                        self.hha_transform,
                     ],
                 ):
                     if transform is None:
@@ -186,8 +200,57 @@ class NYUv2(Dataset):
             download_sn(self.root)
         if self.depth_transform is not None:
             download_depth(self.root)
+        if self.hha_transform is not None:
+            generate_hha(self.root)
         print("Done!")
 
+def generate_hha(root: str):
+    """
+    Generate HHA‐encoded images from the raw depth maps.
+    For each split (‘train’, ‘test’), read every PNG in <root>/{split}_depth/,
+    run it through compute_HHA(), and save the result to <root>/{split}_hha/.
+    Skips any files already on disk.
+    """
+    try:
+        from depth2hha.getHHA import getHHA
+        from depth2hha.utils.getCameraParam import getCameraParam
+
+    except ImportError:
+        raise ImportError(
+            "Could not import compute_HHA from getHHA.py. "
+            "Make sure Depth2HHA’s getHHA.py is in your PYTHONPATH."
+        )
+
+    for split in ["train", "test"]:
+        depth_dir = os.path.join(root, f"{split}_depth")
+        hha_dir   = os.path.join(root, f"{split}_hha")
+        os.makedirs(hha_dir, exist_ok=True)
+
+        for fname in sorted(os.listdir(depth_dir)):
+            depth_path = os.path.join(depth_dir, fname)
+            hha_path   = os.path.join(hha_dir,   fname)
+
+            # skip if already generated
+            if os.path.exists(hha_path):
+                continue
+
+             # 1) load the 16-bit PNG and get a numpy array
+            depth_png = Image.open(depth_path)
+            depth_raw = np.array(depth_png, dtype=np.uint16)
+
+            # 2) convert to meters as float32
+            depth_m   = depth_raw.astype(np.float32) / 1e4
+
+            # 3) (optional) you can do simple hole-filling if you want a separate RD,
+            #    or just reuse depth_m as both D and RD
+            D  = depth_m
+
+            # 4) call the HHA encoder
+            C = getCameraParam()
+            hha_np = getHHA(C, D, 0)
+
+            # save out as PNG
+            Image.fromarray(hha_np).save(hha_path)
 
 def download_rgb(root: str):
     train_url = "http://www.doc.ic.ac.uk/~ahanda/nyu_train_rgb.tgz"
