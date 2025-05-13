@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc
+from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc, pixel_accuracy, mean_accuracy, frequency_weighted_iou
 
 from data.augmentations import JointAugment, AugmentedDataset
 
@@ -72,6 +72,16 @@ def evaluate(model, loader, criterion, device):
     return running_loss / len(loader.dataset)
 
 def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=10):
+    """
+    Runs evaluation over loader and returns a dict of segmentation metrics:
+    - Pixel Accuracy
+    - Mean Accuracy
+    - Mean IoU
+    - Frequency Weighted IoU
+    - Worst Class IoU
+    - Expected Calibration Error (ECE)
+    - Pixel-level AUROC
+    """
     model.eval()
     all_conf, all_pred, all_tgt = [], [], []
     with torch.no_grad():
@@ -96,10 +106,15 @@ def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=
     # build mask of valid pixels
     valid_mask = all_tgt != ignore_index
 
-    # confusion matrix / IoUs
-    cm    = compute_confusion_matrix(all_pred, all_tgt, num_classes, ignore_index)
-    miou  = mean_iou(cm)
-    worst = worst_class_iou(cm)
+    # confusion matrix
+    cm = compute_confusion_matrix(all_pred, all_tgt, num_classes, ignore_index)
+
+    # basic segmentation metrics
+    pix_acc = pixel_accuracy(cm)
+    mean_acc = mean_accuracy(cm)
+    miou    = mean_iou(cm)
+    fw_iou  = frequency_weighted_iou(cm)
+    worst   = worst_class_iou(cm)
 
     # calibration & AUROC
     correctness = (all_pred == all_tgt).astype(int)
@@ -107,11 +122,15 @@ def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=
     auc = pixel_auroc(all_conf, correctness, ignore_mask=valid_mask)
 
     return {
-        "val_mIoU":      miou,
-        "val_worst_IoU": worst,
-        "val_ECE":       ece,
-        "val_AUROC":     auc
+        "val_PixelAccuracy":           pix_acc,
+        "val_MeanAccuracy":            mean_acc,
+        "val_MeanIoU":                 miou,
+        "val_FrequencyWeightedIoU":    fw_iou,
+        "val_WorstClassIoU":           worst,
+        "val_ECE":                     ece,
+        "val_AUROC":                   auc
     }
+
 
 def make_optimizer_from_cfg(model: nn.Module, cfg: Dict) -> torch.optim.Optimizer:
     optim_cls = getattr(torch.optim, cfg["name"])
@@ -249,18 +268,29 @@ def main():
             f"AUROC(val):  {val_metrics['val_AUROC']:.4f}"
         )
         wandb.log({
-            "epoch":        epoch,
-            "train_loss":   train_loss,
-            "val_loss":     val_loss,
-            # prefix the metrics so you can plot train vs val
-            "train_mIoU":   train_metrics['val_mIoU'],
-            "train_ECE":    train_metrics['val_ECE'],
-            "train_AUROC":  train_metrics['val_AUROC'],
-            "val_mIoU":     val_metrics['val_mIoU'],
-            "val_ECE":      val_metrics['val_ECE'],
-            "val_AUROC":    val_metrics['val_AUROC'],
-            "lr_encoder":   optimizer.param_groups[0]['lr'],
-            "lr_decoder":   optimizer.param_groups[1]['lr']
+          "epoch":                     epoch,
+          "train_loss":                train_loss,
+          "val_loss":                  val_loss,
+
+          # Expanded segmentation metrics
+          "train_PixelAccuracy":           train_metrics['val_PixelAccuracy'],
+          "train_MeanAccuracy":            train_metrics['val_MeanAccuracy'],
+          "train_mIoU":                    train_metrics['val_MeanIoU'],
+          "train_FrequencyWeightedIoU":    train_metrics['val_FrequencyWeightedIoU'],
+          "train_WorstClassIoU":           train_metrics['val_WorstClassIoU'],
+          "train_ECE":                     train_metrics['val_ECE'],
+          "train_AUROC":                   train_metrics['val_AUROC'],
+
+          "val_PixelAccuracy":             val_metrics['val_PixelAccuracy'],
+          "val_MeanAccuracy":              val_metrics['val_MeanAccuracy'],
+          "val_mIoU":                      val_metrics['val_MeanIoU'],
+          "val_FrequencyWeightedIoU":      val_metrics['val_FrequencyWeightedIoU'],
+          "val_WorstClassIoU":             val_metrics['val_WorstClassIoU'],
+          "val_ECE":                       val_metrics['val_ECE'],
+          "val_AUROC":                     val_metrics['val_AUROC'],
+
+          "lr_encoder":               optimizer.param_groups[0]['lr'],
+          "lr_decoder":               optimizer.param_groups[1]['lr']
         })
 
 
