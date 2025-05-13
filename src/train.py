@@ -209,8 +209,6 @@ def main():
     seg_tf = transforms.ToTensor()
     hha_tf = transforms.ToTensor()
     depth_tf = transforms.ToTensor()
-    hha_tf = None
-    depth_tf = None
 
 
 
