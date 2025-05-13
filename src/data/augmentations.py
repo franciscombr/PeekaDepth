@@ -19,10 +19,10 @@ class JointAugment:
         self.scale_range = scale_range
         self.color_jitter = transforms.ColorJitter(**color_jitter_params)
 
-    def __call__(self, rgb, seg, depth):
+    def __call__(self, rgb, seg, depth, hha):
         # 1) Flip
         if random.random() < self.flip_prob:
-            rgb, seg, depth = TF.hflip(rgb), TF.hflip(seg), TF.hflip(depth)
+            rgb, seg, depth, hha = TF.hflip(rgb), TF.hflip(seg), TF.hflip(depth), TF.hflip(hha)
 
         # 2) Color‐jitter RGB only
         rgb = self.color_jitter(rgb)
@@ -42,6 +42,7 @@ class JointAugment:
         rgb   = TF.resize(rgb,   (new_h, new_w), interpolation=Image.BILINEAR)
         depth = TF.resize(depth, (new_h, new_w), interpolation=Image.NEAREST)
         seg   = TF.resize(seg,   (new_h, new_w), interpolation=Image.NEAREST)
+        hha   = TF.resize(hha,   (new_h,new_w), interpolation=Image.BILINEAR)
 
         # 4) Pad to at least output_size
         pad_h = max(self.output_size[0] - new_h, 0)
@@ -50,12 +51,15 @@ class JointAugment:
             rgb   = TF.pad(rgb, (0,0,pad_w,pad_h), fill=0)
             depth = TF.pad(depth, (0,0,pad_w,pad_h), fill=0)
             seg   = TF.pad(seg, (0,0,pad_w,pad_h), fill=0)
+            hha   = TF.pad(hha, (0,0,pad_w,pad_h), fill=0)
 
         # 5) Random crop
         i, j, h, w = transforms.RandomCrop.get_params(rgb, self.output_size)
         rgb   = TF.crop(rgb, i, j, h, w)
         depth = TF.crop(depth, i, j, h, w)
         seg   = TF.crop(seg, i, j, h, w)
+        hha   = TF.crop(hha, i, j, h, w)
+
 
         # 6) ToTensor; keep seg as LongTensor mask
         #rgb   = TF.to_tensor(rgb)
@@ -65,7 +69,7 @@ class JointAugment:
             seg = seg.squeeze(0).long()
         else:
             seg = torch.as_tensor(np.array(seg), dtype=torch.long)
-        return rgb, seg, depth
+        return rgb, seg, depth, hha
 
 class AugmentedDataset(Dataset):
     def __init__(self, base_ds, joint_tf):
@@ -77,5 +81,5 @@ class AugmentedDataset(Dataset):
 
     def __getitem__(self, idx):
         # NYUv2 returns (rgb: PIL, seg: PIL, depth: PIL) or vice-versa
-        rgb, seg, depth = self.base[idx]
-        return self.joint_tf(rgb, seg, depth)
+        rgb, seg, depth, hha = self.base[idx]
+        return self.joint_tf(rgb, seg, depth, hha)
