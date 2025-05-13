@@ -87,9 +87,9 @@ def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=
     model.eval()
     all_conf, all_pred, all_tgt = [], [], []
     with torch.no_grad():
-        for rgb, seg, depth in loader:
-            rgb, depth, seg = rgb.to(device), depth.to(device), seg.to(device)
-            inputs = torch.cat([rgb, depth], dim=1) if getattr(model, "depth_info", True) else rgb
+        for rgb, seg, depth, hha in loader:
+            rgb, depth, seg, hha= rgb.to(device), depth.to(device), seg.to(device), hha.to(device)
+            inputs = torch.cat([rgb, hha], dim=1) if getattr(model, "depth_info", True) else rgb
 
             logits = model(inputs)
             probs  = torch.softmax(logits, dim=1)
