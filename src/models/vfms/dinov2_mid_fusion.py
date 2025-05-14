@@ -45,26 +45,31 @@ class MidFusionDINOv2Encoder(nn.Module):
             stream.train()
 
     def _embed(self, x: torch.Tensor, enc: nn.Module):
-        # patch‐embed + cls token + pos embed
-        x = enc.patch_embed(x)                  # (B, C, H', W')
+        # 1) conv patch-embed → (B, C, Hʼ, Wʼ)
+        x = enc.patch_embed.proj(x)
         B, C, H, W = x.shape
-        x = x.flatten(2).transpose(1,2)         # (B, N, C)
-        cls = enc.cls_token.expand(B, -1, -1)   # (B, 1, C)
+
+        # 2) flatten to tokens → (B, N, C)
+        x = x.flatten(2).transpose(1, 2)
+
+        # 3) prepend cls token + add pos-embed → (B, N+1, C)
+        cls = enc.cls_token.expand(B, -1, -1)
         x = torch.cat([cls, x], dim=1) + enc.pos_embed
-        return x
+
+        return x, H, W
 
     def forward(self, x: torch.Tensor):
         """
         x: [B, 6, H, W] if depth_info=True (rgb+hha),
            [B, 3, H, W] if depth_info=False (rgb only)
         """
-        B, C, H, W = x.shape
+        B, C_in, H, W = x.shape
         # split into rgb/depth
         if self.depth_info:
-            assert C == 6, "Expected 6 channels (rgb+hha)"
+            assert C_in == 6, "Expected 6 channels (rgb+hha)"
             rgb, depth = x[:, :3], x[:, 3:]
         else:
-            assert C == 3, "Expected 3 channels (rgb)"
+            assert C_in == 3, "Expected 3 channels (rgb)"
             rgb, depth = x, None
 
         # crop to multiple of patch_size
@@ -74,10 +79,10 @@ class MidFusionDINOv2Encoder(nn.Module):
         if self.depth_info:
             depth = F.interpolate(depth, size=(H0, W0), mode='bilinear', align_corners=False)
 
-        # embed streams
-        x_rgb = self._embed(rgb, self.rgb)
-        if self.depth_info:
-            x_dep = self._embed(depth, self.depth)
+        # embed both streams (now gets H', W')
+        x_rgb, Hf, Wf = self._embed(rgb,   self.rgb)
+        if depth is not None:
+            x_dep, _, _ = self._embed(depth, self.depth)
 
         # feed through first half of blocks
         if self.depth_info:
@@ -107,11 +112,9 @@ class MidFusionDINOv2Encoder(nn.Module):
         x = self.rgb.norm(x)  # (B, N, C)
 
         # reshape back to feature map
-        x = x[:, 1:].transpose(1, 2).reshape(
-            B,
-            self.rgb.embed_dim,
-            H0 // self.patch_size,
-            W0 // self.patch_size
+        x = x[:, 1:]                                   # drop cls token → (B, N, C)
+        x = x.transpose(1, 2).view(                   # → (B, C, Hf, Wf)
+            B, self.rgb.embed_dim, Hf, Wf
         )
         return x
 
