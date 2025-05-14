@@ -3,114 +3,113 @@ import torch.nn as nn
 import torch.nn.functional as F
 import copy
 
-class DINOv2SegmentationModel(nn.Module):
-    def __init__(self, backbone: str, out_classes: int, 
-                 fusion_block: int = None, fuse_type: str = "concat"):
-        """
-        fusion_block: which transformer block index to fuse at.
-                      If None, defaults to halfway through.
-        fuse_type: "add"  (element‐wise sum) or "concat" (+ proj back).
-        """
+class MidFusionDINOv2Encoder(nn.Module):
+    def __init__(self, backbone: str, fusion_block: int = None, fuse_type: str = "concat"):
         super().__init__()
+        # load RGB encoder and duplicate for depth
+        self.rgb = torch.hub.load('facebookresearch/dinov2', backbone)
+        self.depth = copy.deepcopy(self.rgb)
 
-
-        self.depth_info = True
-        # load RGB encoder
-        self.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
-        # duplicate for depth
-        self.depth_encoder = copy.deepcopy(self.rgb_encoder)
-
-        # patch size & shape flags
-        self.patch_size = self.rgb_encoder.patch_embed.patch_size[0]
+        # patch/grid settings
+        self.patch_size = self.rgb.patch_embed.patch_size[0]
         self.requires_patch_divisible_input = True
 
-        # determine fusion index
-        total_blocks = len(self.rgb_encoder.blocks)
+        # choose fusion layer
+        total_blocks = len(self.rgb.blocks)
         self.fusion_block = fusion_block or (total_blocks // 2)
-        assert 0 < self.fusion_block < total_blocks, "fusion_block out of range"
+        assert 0 < self.fusion_block < total_blocks
 
-        # if concat fusion, project back to embed_dim
+        # fusion mode
         self.fuse_type = fuse_type
         if fuse_type == "concat":
-            ed = self.rgb_encoder.embed_dim
+            ed = self.rgb.embed_dim
             self.fusion_proj = nn.Linear(2*ed, ed)
 
-        # final linear decoder (pixel‐wise)
-        self.decoder = nn.Linear(self.rgb_encoder.embed_dim, out_classes)
+    def freeze(self):
+        for m in (self.rgb, self.depth):
+            for p in m.parameters():
+                p.requires_grad = False
+            m.eval()
 
-    def freeze_encoder(self):
-        for p in self.rgb_encoder.parameters():
-            p.requires_grad = False
-        self.rgb_encoder.eval()
-        for p in self.depth_encoder.parameters():
-            p.requires_grad = False
-        self.depth_encoder.eval()
+    def unfreeze(self):
+        for m in (self.rgb, self.depth):
+            for p in m.parameters():
+                p.requires_grad = True
+            m.train()
 
-    def unfreeze_encoder(self):
-        for p in self.rgb_encoder.parameters():
-            p.requires_grad = True
-        self.rgb_encoder.train()
-        for p in self.depth_encoder.parameters():
-            p.requires_grad = True 
-        self.depth_encoder.train()
-
-    def _embed(self, x: torch.Tensor, encoder: nn.Module):
-        # patch embedding + cls token + pos embed
-        x = encoder.patch_embed(x)                      # (B, C, H', W')
+    def _embed(self, x, encoder):
+        x = encoder.patch_embed(x)
         B, C, H, W = x.shape
         x = x.flatten(2).transpose(1,2)                 # (B, N, C)
-        cls_token = encoder.cls_token.expand(B, -1, -1) # (B,1,C)
-        x = torch.cat((cls_token, x), dim=1)
-        x = x + encoder.pos_embed
+        cls = encoder.cls_token.expand(B, -1, -1)
+        x = torch.cat([cls, x], dim=1) + encoder.pos_embed
         return x
 
-    def forward(self, rgb: torch.Tensor, depth: torch.Tensor):
-        # resize so H,W divisible by patch
-        for t in (rgb, depth):
-            assert t.shape[2] == rgb.shape[2] and t.shape[3] == rgb.shape[3], \
-                "rgb/depth must have same spatial dims"
+    def forward(self, rgb, depth):
+        # align spatial dims
+        H, W = rgb.shape[-2:]
+        H0 = (H // self.patch_size) * self.patch_size
+        W0 = (W // self.patch_size) * self.patch_size
+        rgb = F.interpolate(rgb, size=(H0,W0), mode='bilinear', align_corners=False)
 
-        new_h = (rgb.shape[2] // self.patch_size) * self.patch_size
-        new_w = (rgb.shape[3] // self.patch_size) * self.patch_size
-        rgb = F.interpolate(rgb, size=(new_h,new_w), mode='bilinear', align_corners=False)
-        # depth: if single‐channel, unsqueeze; or replicate:
+        # depth → 3ch
         if depth.shape[1] == 1:
             depth = depth.repeat(1,3,1,1)
-        depth = F.interpolate(depth, size=(new_h,new_w), mode='bilinear', align_corners=False)
+        depth = F.interpolate(depth, size=(H0,W0), mode='bilinear', align_corners=False)
 
-        # embed both streams
-        x_rgb = self._embed(rgb, self.rgb_encoder)
-        x_dep = self._embed(depth, self.depth_encoder)
+        # get token streams
+        x_rgb = self._embed(rgb,   self.rgb)
+        x_dep = self._embed(depth, self.depth)
 
-        # feed through first half of transformer blocks
-        for idx, block in enumerate(self.rgb_encoder.blocks):
-            if idx == self.fusion_block:
+        # first pass through each stream
+        for i, blk in enumerate(self.rgb.blocks):
+            if i == self.fusion_block:
                 break
-            x_rgb = block(x_rgb)
-            x_dep = block(x_dep)
+            x_rgb = blk(x_rgb)
+            x_dep = blk(x_dep)
 
-        # mid‐level fusion
+        # fuse tokens
         if self.fuse_type == "add":
-            x = (x_rgb + x_dep) * 0.5
-        else:  # concat
-            x = torch.cat([x_rgb, x_dep], dim=-1)            # (B, N, 2C)
-            x = self.fusion_proj(x)                          # → (B, N, C)
+            x = 0.5*(x_rgb + x_dep)
+        else:
+            x = torch.cat([x_rgb, x_dep], dim=-1)
+            x = self.fusion_proj(x)
 
-        # continue through remaining blocks
-        for block in self.rgb_encoder.blocks[self.fusion_block:]:
-            x = block(x)
+        # remaining joint blocks
+        for blk in self.rgb.blocks[self.fusion_block:]:
+            x = blk(x)
+        x = self.rgb.norm(x)
 
-        # normalization
-        x = self.rgb_encoder.norm(x)  # (B, N, C)
-
-        # drop cls token, go back to (B,C,H',W')
-        x = x[:, 1:].transpose(1,2).view(
-            rgb.size(0), self.rgb_encoder.embed_dim,
-            new_h // self.patch_size, new_w // self.patch_size
+        # reshape to feature‐map
+        B, _, _ = x.shape
+        x = x[:,1:].transpose(1,2).view(
+            B, self.rgb.embed_dim,
+            H0//self.patch_size, W0//self.patch_size
         )
+        return x
 
-        # pixel‐wise linear & upsample
-        logits = self.decoder(x.permute(0,2,3,1))
-        logits = logits.permute(0,3,1,2)
+
+class DINOv2SegmentationModel(nn.Module):
+    def __init__(self, backbone: str, out_classes: int,
+                 fusion_block: int = None, fuse_type: str = "concat"):
+        super().__init__()
+        # one encoder object
+        self.encoder = MidFusionDINOv2Encoder(backbone, fusion_block, fuse_type)
+        # one decoder object: pixel‐wise linear head
+        self.decoder = nn.Linear(self.encoder.rgb.embed_dim, out_classes)
+
+    def freeze_encoder(self):
+        self.encoder.freeze()
+
+    def unfreeze_encoder(self):
+        self.encoder.unfreeze()
+
+    def forward(self, rgb, depth):
+        # encoder → feature map (B, C, H', W')
+        feats = self.encoder(rgb, depth)
+        # decoder: apply linear per‐token then upsample
+        B, C, H, W = feats.shape
+        logits = self.decoder(feats.permute(0,2,3,1))  # (B, H, W, classes)
+        logits = logits.permute(0,3,1,2)               # (B, classes, H, W)
         logits = F.interpolate(logits, size=rgb.shape[-2:], mode="bilinear", align_corners=False)
         return logits
