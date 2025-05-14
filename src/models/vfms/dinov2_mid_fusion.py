@@ -45,18 +45,41 @@ class MidFusionDINOv2Encoder(nn.Module):
             stream.train()
 
     def _embed(self, x: torch.Tensor, enc: nn.Module):
-        # 1) conv patch-embed → (B, C, Hʼ, Wʼ)
+        # conv → (B, C, Hʼ, Wʼ)
         x = enc.patch_embed.proj(x)
-        B, C, H, W = x.shape
+        B, C, Hf, Wf = x.shape
 
-        # 2) flatten to tokens → (B, N, C)
+        # flatten to tokens → (B, N, C)
         x = x.flatten(2).transpose(1, 2)
 
-        # 3) prepend cls token + add pos-embed → (B, N+1, C)
+        # prepend cls token → (B, N+1, C)
         cls = enc.cls_token.expand(B, -1, -1)
-        x = torch.cat([cls, x], dim=1) + enc.pos_embed
+        x = torch.cat([cls, x], dim=1)
 
-        return x, H, W
+        # ----- begin: interpolate pos_embed -----
+        # enc.pos_embed: (1, orig_N+1, C)
+        orig_embed = enc.pos_embed  # (1, P+1, C)
+        cls_pos, grid_pos = orig_embed[:, :1], orig_embed[:, 1:]  # (1,1,C), (1,P,C)
+        P = grid_pos.shape[1]
+        orig_size = int(math.sqrt(P))
+        # reshape → (1, C, orig_h, orig_w)
+        grid_pos = grid_pos.view(1, orig_size, orig_size, C).permute(0, 3, 1, 2)
+        # interpolate to (Hf, Wf)
+        grid_pos = F.interpolate(
+            grid_pos,
+            size=(Hf, Wf),
+            mode="bilinear",
+            align_corners=False
+        )
+        # back to (1, Hf*Wf, C)
+        grid_pos = grid_pos.permute(0, 2, 3, 1).view(1, Hf * Wf, C)
+        # recombine
+        new_pos_embed = torch.cat([cls_pos, grid_pos], dim=1)  # (1, Hf*Wf+1, C)
+        # ----- end interpolation -----
+
+        # now add them
+        x = x + new_pos_embed
+        return x, Hf, Wf
 
     def forward(self, x: torch.Tensor):
         """
