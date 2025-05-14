@@ -12,6 +12,8 @@ class DINOv2SegmentationModel(nn.Module):
         fuse_type: "add"  (element‐wise sum) or "concat" (+ proj back).
         """
         super().__init__()
+
+
         self.depth_info = True
         # load RGB encoder
         self.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
@@ -35,6 +37,22 @@ class DINOv2SegmentationModel(nn.Module):
 
         # final linear decoder (pixel‐wise)
         self.decoder = nn.Linear(self.rgb_encoder.embed_dim, out_classes)
+
+    def freeze_encoder(self):
+        for p in self.rgb_encoder.parameters():
+            p.requires_grad = False
+        self.rgb_encoder.eval()
+        for p in self.depth_encoder.parameters():
+            p.requires_grad = False
+        self.depth_encoder.eval()
+
+    def unfreeze_encoder(self):
+        for p in self.rgb_encoder.parameters():
+            p.requires_grad = True
+        self.rgb_encoder.train()
+        for p in self.depth_encoder.parameters():
+            p.requires_grad = True 
+        self.depth_encoder.train()
 
     def _embed(self, x: torch.Tensor, encoder: nn.Module):
         # patch embedding + cls token + pos embed
