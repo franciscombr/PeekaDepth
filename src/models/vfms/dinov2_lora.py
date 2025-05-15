@@ -102,5 +102,5 @@ class DINOv2SegmentationModel(nn.Module):
         fused_feat = fused_feat.permute(0, 2, 1).reshape(B, C, H, W)  # (B, C, H, W)
         logits = self.decoder(fused_feat.permute(0, 2, 3, 1))  # (B, H, W, C)
         logits = logits.permute(0, 3, 1, 2)  # (B, C, H, W)
-        logits = F.interpolate(logits, size=rgb.shape[-2:], mode="bilinear", align_corners=False)
+        logits = F.interpolate(logits, size=inputs.shape[-2:], mode="bilinear", align_corners=False)
         return logits
