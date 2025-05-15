@@ -68,7 +68,7 @@ class DINOv2SegmentationModel(nn.Module):
 
 
     def forward(self, inputs: torch.Tensor):
-        B, C_in, H, W = x.shape
+        B, C_in, H, W = inputs.shape
         # split into rgb/depth
         if self.depth_info:
             assert C_in == 6, "Expected 6 channels (rgb+hha)"
