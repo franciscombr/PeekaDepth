@@ -7,4 +7,4 @@
 #SBATCH --error=./logs/slurm_%x.%j.err   # File containing STDERR output. If ommited, use STDOUT.
 
 # Commands / scripts to run (e.g., python3 train.py)
-python3 src/train.py --config src/config/dinov2_conf_cross_modal_attn.yaml
+python3 src/train.py --config src/config/dinov2_cross_modal_attn.yaml
