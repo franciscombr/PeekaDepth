@@ -13,26 +13,35 @@ class DINOv2SegmentationModel(nn.Module):
         self.encoder = torch.hub.load('facebookresearch/dinov2', backbone)
         embed_dim = self.encoder.embed_dim
 
-        # 2) Replace patch_embed conv to accept 6 channels (RGB+HHA)
-        #    Original is Conv2d(3, embed_dim, patch_size, patch_size)
-        orig_pe = self.encoder.patch_embed
-        new_pe = nn.Conv2d(
+        # 2) Grab the original PatchEmbed and its Conv2d
+        orig_pe = self.encoder.patch_embed             # this is a PatchEmbed object
+        old_conv = orig_pe.proj                        # the Conv2d inside it
+
+        # 3) Create a new Conv2d for 6 channels
+        new_conv = nn.Conv2d(
             in_channels=6,
-            out_channels=orig_pe.out_channels,
-            kernel_size=orig_pe.kernel_size,
-            stride=orig_pe.stride,
-            padding=getattr(orig_pe, 'padding', 0)
+            out_channels=old_conv.out_channels,
+            kernel_size=old_conv.kernel_size,
+            stride=old_conv.stride,
+            padding=getattr(old_conv, 'padding', 0),
+            bias=(old_conv.bias is not None)
         )
-        # Copy RGB weights
+
+        # 4) Initialize new_conv so that RGB weights are copied,
+        #    and HHA channels start as the mean of RGB kernels
         with torch.no_grad():
-            new_pe.weight[:, :3, :, :] = orig_pe.weight
-            # Initialize HHA weights as the mean over RGB kernels
-            new_pe.weight[:, 3:, :, :] = orig_pe.weight.mean(dim=1, keepdim=True)
-            new_pe.bias[:] = orig_pe.bias
+            # copy the 3 RGB kernels
+            new_conv.weight[:, :3, :, :] = old_conv.weight
+            # set the 3 HHA kernels to the mean over RGB
+            new_conv.weight[:, 3:, :, :] = old_conv.weight.mean(dim=1, keepdim=True)
+            if old_conv.bias is not None:
+                new_conv.bias[:] = old_conv.bias
 
-        self.encoder.patch_embed = new_pe
+        # 5) Replace the proj in the PatchEmbed, adjust in_chans for consistency
+        orig_pe.proj = new_conv
+        setattr(orig_pe, 'in_chans', 6)  # so any code that reads in_chans sees 6
 
-        # 3) Simple linear decoder
+        # 6) Simple linear decoder
         self.decoder = nn.Linear(embed_dim, out_classes)
 
     def freeze_encoder(self):
@@ -47,30 +56,29 @@ class DINOv2SegmentationModel(nn.Module):
 
     def forward(self, x: torch.Tensor):
         """
-        x: Tensor[B, 6, H, W]  where channels = [R,G,B,H,H,A] (HHA_encoded depth)
+        x: Tensor of shape (B, 6, H, W), where channels = [R, G, B, H, H, A]
+        (the last three are your HHA-encoded depth).
         """
-        # 1) enforce divisible by patch size
-        H, W = x.shape[-2:]
+        # 1) make sure H, W divisible by patch_size
+        B, C, H, W = x.shape
         new_h = (H // self.patch_size) * self.patch_size
         new_w = (W // self.patch_size) * self.patch_size
         x = F.interpolate(x, size=(new_h, new_w),
                           mode='bilinear', align_corners=False)
 
-        # 2) run through DINOv2 encoder to get patch tokens
-        #    get_intermediate_layers returns a list; use the first (last) layer
-        tokens = self.encoder.get_intermediate_layers(x, n=1)[0]  # (B, N, C)
-        B, N, C = tokens.shape
+        # 2) get the final patch tokens
+        tokens = self.encoder.get_intermediate_layers(x, n=1)[0]  # (B, N, C_emb)
+        B, N, C_emb = tokens.shape
 
-        # 3) reshape to feature map
-        h_patches = new_h // self.patch_size
-        w_patches = new_w // self.patch_size
-        feats = tokens.permute(0, 2, 1).reshape(B, C, h_patches, w_patches)
+        # 3) reshape back to spatial map
+        h_p = new_h // self.patch_size
+        w_p = new_w // self.patch_size
+        feats = tokens.permute(0, 2, 1).reshape(B, C_emb, h_p, w_p)
 
-        # 4) per-pixel logits
-        #    decoder expects last-dim channels
-        logits = self.decoder(feats.permute(0, 2, 3, 1))  # (B, Hp, Wp, out_classes)
-        logits = logits.permute(0, 3, 1, 2)                # (B, out_classes, Hp, Wp)
+        # 4) decode per-patch-class
+        logits = self.decoder(feats.permute(0, 2, 3, 1))  # (B, h_p, w_p, out_classes)
+        logits = logits.permute(0, 3, 1, 2)                # (B, out_classes, h_p, w_p)
 
-        # 5) upsample back to input res
+        # 5) upsample to original H×W
         return F.interpolate(logits, size=(H, W),
                              mode='bilinear', align_corners=False)
