@@ -3,7 +3,6 @@ import os
 import argparse
 import importlib
 from typing import Dict
-from traitlets import default
 import yaml
 
 import torch
