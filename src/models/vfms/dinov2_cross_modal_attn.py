@@ -80,6 +80,12 @@ class DINOv2SegmentationModel(nn.Module):
 
         # decoder is an nn.Linear over tokens
         self.decoder = nn.Linear(D, out_classes)
+    
+    def freeze_encoder(self):
+        self.encoder.freeze()
+
+    def unfreeze_encoder(self):
+        self.encoder.unfreeze()
 
     def forward(self, x: torch.Tensor):
         """
