@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class DINOv2DepthFusionSegModel(nn.Module):
+class DINOv2SegmentationModel(nn.Module):
     def __init__(self, backbone: str, out_classes: int, 
                  num_heads: int = 8, patch_size: int = 14):
         super().__init__()
