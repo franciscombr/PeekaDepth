@@ -68,27 +68,37 @@ class DINOv2SegmentationModel(nn.Module):
 
 
     def forward(self, inputs: torch.Tensor):
-        rgb, hha = inputs[:, :3], inputs[:, 3:]
-        # Resize inputs to match patch size
-        new_height = (rgb.shape[2] // self.patch_size) * self.patch_size
-        new_width = (rgb.shape[3] // self.patch_size) * self.patch_size
-        rgb = F.interpolate(rgb, size=(new_height, new_width), mode='bilinear', align_corners=False)
-        hha = F.interpolate(hha, size=(new_height, new_width), mode='bilinear', align_corners=False)
+        B, C_in, H, W = x.shape
+        # split into rgb/depth
+        if self.depth_info:
+            assert C_in == 6, "Expected 6 channels (rgb+hha)"
+            rgb, depth = inputs[:, :3], inputs[:, 3:]
+        else:
+            assert C_in == 3, "Expected 3 channels (rgb)"
+            rgb, depth = inputs, None
+
+        # crop to multiple of patch_size
+        H0 = (H // self.patch_size) * self.patch_size
+        W0 = (W // self.patch_size) * self.patch_size
+        rgb = F.interpolate(rgb, size=(H0, W0), mode='bilinear', align_corners=False)
+        if self.depth_info:
+            depth = F.interpolate(depth, size=(H0, W0), mode='bilinear', align_corners=False)
+
 
         # Get frozen RGB features from DINOv2
         with torch.no_grad():
             rgb_feat = self.encoder.get_intermediate_layers(rgb, n=1)[0]  # (B, N, C)
 
         # Get HHA embedding
-        hha_feat = self.hha_encoder(hha)  # (B, C)
+        hha_feat = self.hha_encoder(depth)  # (B, C)
 
         # Apply LoRA fusion
         fused_feat = self.fusion(rgb_feat, hha_feat)  # (B, N, C)
 
         # Prepare for decoding
         B, N, C = fused_feat.shape
-        H = new_height // self.patch_size
-        W = new_width // self.patch_size
+        H = H0 // self.patch_size
+        W = W0 // self.patch_size
         fused_feat = fused_feat.permute(0, 2, 1).reshape(B, C, H, W)  # (B, C, H, W)
         logits = self.decoder(fused_feat.permute(0, 2, 3, 1))  # (B, H, W, C)
         logits = logits.permute(0, 3, 1, 2)  # (B, C, H, W)
