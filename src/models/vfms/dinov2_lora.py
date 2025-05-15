@@ -67,7 +67,8 @@ class DINOv2SegmentationModel(nn.Module):
         self.encoder.train()
 
 
-    def forward(self, rgb, hha):
+    def forward(self, inputs: torch.Tensor):
+        rgb, hha = inputs[:, :3], inputs[:, 3:]
         # Resize inputs to match patch size
         new_height = (rgb.shape[2] // self.patch_size) * self.patch_size
         new_width = (rgb.shape[3] // self.patch_size) * self.patch_size
