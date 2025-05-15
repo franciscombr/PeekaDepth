@@ -136,30 +136,16 @@ def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=
 
 def make_optimizer_from_cfg(model: nn.Module, cfg: Dict) -> torch.optim.Optimizer:
     optim_cls = getattr(torch.optim, cfg["name"])
-    handled_params = set()
     pg_kwargs = []
     for pg in cfg["param_groups"]:
         submod = getattr(model, pg["module"], None)
         if submod is None:
             raise ValueError(f"Model has no attribute '{pg['module']}")
-        for p in submod.parameters():
-            handled_params.add(id(p)) 
         pg_kwargs.append({
             "params": submod.parameters(),
             "lr": float(pg["lr"]),
             "weight_decay": float(cfg.get("weight_decay",0.0)),
         })
-
-        default_cfg = cfg.get("default", {})
-        default_lr = default_cfg.get("lr", cfg.get("lr", 1e-5))
-        default_wd = default_cfg.get("weight_decay", cfg.get("weight_decay", 0.05))
-        remaining = [p for p in model.parameters() if id(p) not in handled_params]
-        if remaining:
-            pg_kwargs.append({
-                "params": remaining,
-                "lr": float(default_lr),
-                "weight_decay": float(default_wd)
-            })
     return optim_cls(pg_kwargs)
 
 def main():
