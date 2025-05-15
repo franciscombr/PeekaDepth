@@ -32,6 +32,10 @@ optimizer:
       lr: 1e-5
     - module: decoder
       lr: 1e-4
+    - module: hha_encoder
+      lr: 1e-4
+    - module: fusion
+      lr: 1e-4
 
 lr_scheduler: 
   name: poly
