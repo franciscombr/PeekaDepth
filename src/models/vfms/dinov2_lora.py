@@ -44,9 +44,6 @@ class DINOv2SegmentationModel(nn.Module):
 
         # Load pretrained DINOv2 backbone
         self.encoder = torch.hub.load('facebookresearch/dinov2', backbone)
-        for p in self.encoder.parameters():
-            p.requires_grad = False
-        self.encoder.eval()
 
         self.decoder = nn.Linear(self.encoder.embed_dim, out_classes)
 
