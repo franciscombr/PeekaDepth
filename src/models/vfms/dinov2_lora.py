@@ -83,8 +83,7 @@ class DINOv2SegmentationModel(nn.Module):
 
 
         # Get frozen RGB features from DINOv2
-        with torch.no_grad():
-            rgb_feat = self.encoder.get_intermediate_layers(rgb, n=1)[0]  # (B, N, C)
+        rgb_feat = self.encoder.get_intermediate_layers(rgb, n=1)[0]  # (B, N, C)
 
         # Get HHA embedding
         hha_feat = self.hha_encoder(depth)  # (B, C)
