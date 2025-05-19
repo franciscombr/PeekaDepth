@@ -122,9 +122,9 @@ class NYUv2(Dataset):
             random.seed(seed)
             img = Image.open(os.path.join(folder("depth"), self._files[index]))
             img = self.depth_transform(img)
-            if isinstance(img, torch.Tensor):
-                # depth png is uint16
-                img = img.float() / 1e4
+            #if isinstance(img, torch.Tensor):
+            #    # depth png is uint16
+            #    img = img.float() / 1e4
             imgs.append(img)
         
         if self.hha_transform is not None:

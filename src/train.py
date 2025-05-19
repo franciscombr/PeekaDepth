@@ -19,7 +19,7 @@ import wandb
 from nyuv2 import NYUv2
 
 
-def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_steps, scheduler):
+def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_steps, scheduler, depth_rep):
     model.train()
     running_loss = 0.0
     optimizer.zero_grad()
@@ -31,7 +31,10 @@ def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_step
         hha = hha.to(device)
 
         if getattr(model, "depth_info", True):
-            inputs = torch.cat([rgb, hha], dim=1)
+            if depth_rep == 'hha':
+                inputs = torch.cat([rgb, hha], dim=1)
+            else:
+                inputs = torch.cat([rgb, depth], dim=1)
         else:
             inputs = rgb
         # Segmentation mask: remove channel dim to shape [B, H, W]
@@ -50,7 +53,7 @@ def train_one_epoch(model, loader, criterion, optimizer, device, grad_accum_step
     return running_loss / len(loader.dataset)
 
 
-def evaluate(model, loader, criterion, device):
+def evaluate(model, loader, criterion, device, depth_rep):
     model.eval()
     running_loss = 0.0
     with torch.no_grad():
@@ -60,8 +63,11 @@ def evaluate(model, loader, criterion, device):
             seg = seg.to(device)
             hha = hha.to(device)
             if getattr(model, "depth_info", True):
-                # Concatenate RGB and depth to form 4-channel input
-                inputs = torch.cat([rgb, hha], dim=1)
+                if depth_rep == 'hha':
+                    inputs = torch.cat([rgb, hha], dim=1)
+                else:
+                    inputs = torch.cat([rgb, depth], dim=1)
+
             
             else:
                 inputs = rgb
@@ -73,7 +79,7 @@ def evaluate(model, loader, criterion, device):
             running_loss += loss.item() * inputs.size(0)
     return running_loss / len(loader.dataset)
 
-def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=10):
+def evaluate_metrics(model, loader, device, num_classes, depth_rep, ignore_index=0, n_bins=10):
     """
     Runs evaluation over loader and returns a dict of segmentation metrics:
     - Pixel Accuracy
@@ -89,7 +95,16 @@ def evaluate_metrics(model, loader, device, num_classes, ignore_index=0, n_bins=
     with torch.no_grad():
         for rgb, seg, depth, hha in loader:
             rgb, depth, seg, hha= rgb.to(device), depth.to(device), seg.to(device), hha.to(device)
-            inputs = torch.cat([rgb, hha], dim=1) if getattr(model, "depth_info", True) else rgb
+            if getattr(model, "depth_info", True):
+                if depth_rep == 'hha':
+                    inputs = torch.cat([rgb, hha], dim=1)
+                else:
+                    inputs = torch.cat([rgb, depth], dim=1)
+
+            
+            else:
+                inputs = rgb
+
 
             logits = model(inputs)
             probs  = torch.softmax(logits, dim=1)
@@ -183,6 +198,7 @@ def main():
     num_workers    = int(cfg.get('num_workers', 4))
     out_dir        = cfg.get('out_dir', './checkpoints')
     grad_accum_steps = int(cfg.get('gradient_accumulation_steps',1))
+    depth_rep = cfg.get('depth_rep', 'hha')
 
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -208,7 +224,17 @@ def main():
     depth_tf = transforms.ToTensor()
     seg_tf = transforms.ToTensor()
     hha_tf = transforms.ToTensor()
-    depth_tf = transforms.ToTensor()
+    # sensor range still in metres (we'll work in absolute space)
+    d_min, d_max = 0, 10.0*1e4
+
+    depth_tf = transforms.Compose([
+        transforms.ToTensor(),                         # raw depth → tensor, shape (1,H,W)
+        transforms.Lambda(lambda d: d.abs()),          # take absolute values
+        transforms.Lambda(lambda d: d.clamp(d_min, d_max)),
+        transforms.Lambda(lambda d: (d - d_min) / (d_max - d_min)),
+        transforms.Lambda(lambda d: d.repeat(3,1,1)),  # → (3,H,W)
+        transforms.Normalize(mean=[0.5]*3, std=[0.5]*3),
+    ])
 
 
 
@@ -261,10 +287,10 @@ def main():
 
     # Training loop
     for epoch in range(1, epochs + 1):
-        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler)
-        val_loss = evaluate(model, val_loader, criterion, device)
-        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, ignore_index=0)
-        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, ignore_index=0)
+        train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler, depth_rep)
+        val_loss = evaluate(model, val_loader, criterion, device, depth_rep)
+        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, ignore_index=0)
+        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, depth_rep, ignore_index=0)
 
 
         print(
@@ -316,11 +342,11 @@ def main():
         # Checkpoint best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            ckpt_path = os.path.join(out_dir, f"{model_module}_best.pth")
+            ckpt_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_best.pth")
             torch.save(model.state_dict(), ckpt_path)
 
     # Save final model
-    final_path = os.path.join(out_dir, f"{model_module}_final.pth")
+    final_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_final.pth")
     torch.save(model.state_dict(), final_path)
 
 if __name__ == '__main__':

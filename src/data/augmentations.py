@@ -10,7 +10,7 @@ class JointAugment:
     def __init__(
         self,
         output_size,
-        flip_prob=0.5,
+        flip_prob=0.7,
         scale_range=(0.5, 2.0),
         color_jitter_params=dict(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
     ):
