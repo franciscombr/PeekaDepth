@@ -39,4 +39,4 @@ lr_scheduler:
   max_iters: 3600
 
 # Directory where checkpoints will be saved
-out_dir: "../results/checkpoints"
+out_dir: "./checkpoints"

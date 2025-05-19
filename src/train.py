@@ -316,11 +316,11 @@ def main():
         # Checkpoint best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            ckpt_path = os.path.join(out_dir, f"{model_class}_best.pth")
+            ckpt_path = os.path.join(out_dir, f"{model_module}_best.pth")
             torch.save(model.state_dict(), ckpt_path)
 
     # Save final model
-    final_path = os.path.join(out_dir, f"{model_class}_final.pth")
+    final_path = os.path.join(out_dir, f"{model_module}_final.pth")
     torch.save(model.state_dict(), final_path)
 
 if __name__ == '__main__':
