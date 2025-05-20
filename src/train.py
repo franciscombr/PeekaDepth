@@ -279,7 +279,7 @@ def main():
         criterion = nn.CrossEntropyLoss(ignore_index=0)
     elif loss == 'FocalLoss':
         criterion = BalancedFocalLoss(
-            samples_per_class=compute_samples_per_cls,
+            samples_per_class=compute_samples_per_cls(train_loader,num_classes,None),
             gamma=2.0,
             ignore_index=0,
             reduction="mean"
