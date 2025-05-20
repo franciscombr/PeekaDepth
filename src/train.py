@@ -279,12 +279,12 @@ def main():
 
     # Loss and optimizer
     if loss == 'CrossEntropyLoss':
-        criterion = nn.CrossEntropyLoss(ignore_index=0)
+        criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     elif loss == 'FocalLoss':
         criterion = BalancedFocalLoss(
             samples_per_class=compute_samples_per_cls(train_loader,num_classes,None),
             gamma=2.0,
-            ignore_index=0,
+            ignore_index=ignore_index,
             reduction="mean"
         ) 
         criterion.to(device)
