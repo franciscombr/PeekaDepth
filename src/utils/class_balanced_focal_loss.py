@@ -19,7 +19,7 @@ class BalancedFocalLoss(nn.Module):
         eps: small constant to avoid division by zero.
         """
         super().__init__()
-        counts = torch.tensor(samples_per_class, dtype=torch.float)
+        counts = torch.as_tensor(samples_per_class, dtype=torch.float)
         # Inverse‐frequency weights
         weights = 1.0 / (counts + eps)
         # Normalize so that sum(weights) = C
