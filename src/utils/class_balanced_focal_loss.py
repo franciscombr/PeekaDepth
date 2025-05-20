@@ -5,6 +5,7 @@ import torch.nn.functional as F
 class BalancedFocalLoss(nn.Module):
     def __init__(
         self,
+        device,
         samples_per_class: list,
         gamma: float = 2.0,
         ignore_index: int = None,
@@ -30,6 +31,7 @@ class BalancedFocalLoss(nn.Module):
 
         # Register as buffer so it moves with .to(device)
         self.register_buffer("class_weights", weights)
+        
         self.gamma = gamma
         self.ignore_index = ignore_index
         self.reduction = reduction

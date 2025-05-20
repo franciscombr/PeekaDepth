@@ -302,8 +302,8 @@ def main():
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler, depth_rep)
         val_loss = evaluate(model, val_loader, criterion, device, depth_rep)
-        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, ignore_index=0)
-        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, depth_rep, ignore_index=0)
+        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, ignore_index=ignore_index)
+        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, depth_rep, ignore_index=ignore_index)
 
 
         print(
