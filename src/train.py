@@ -284,7 +284,7 @@ def main():
             ignore_index=0,
             reduction="mean"
         ) 
-    criterion.to(device)
+        criterion.to(device)
     optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
     if cfg["lr_scheduler"]["name"] == "poly":
         def lr_lambda(step):
