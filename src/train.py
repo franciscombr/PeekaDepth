@@ -13,7 +13,7 @@ from torchvision import transforms
 from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc, pixel_accuracy, mean_accuracy, frequency_weighted_iou
 from utils.compute_invfreq_weights import compute_mfb_weights, compute_samples_per_cls
 from data.augmentations import JointAugment, AugmentedDataset
-from cbloss.loss import FocalLoss, ClassBalancedLoss
+from utils.class_balanced_focal_loss import BalancedFocalLoss
 import wandb
 
 from nyuv2 import NYUv2
@@ -278,18 +278,12 @@ def main():
     if loss == 'CrossEntropyLoss':
         criterion = nn.CrossEntropyLoss(ignore_index=0)
     elif loss == 'FocalLoss':
-        base_focal = FocalLoss(
-            num_classes=num_classes,
+        criterion = BalancedFocalLoss(
+            samples_per_class=compute_samples_per_cls,
             gamma=2.0,
-            alpha=1,
-            reduction='none'
-        )
-        criterion = ClassBalancedLoss(
-            samples_per_cls=compute_samples_per_cls(train_loader, 14, None),
-            beta=0.99,
-            num_classes=num_classes,
-            loss_func=base_focal
-        )
+            ignore_index=0,
+            reduction="mean"
+        ) 
 
     optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
     if cfg["lr_scheduler"]["name"] == "poly":
@@ -358,11 +352,11 @@ def main():
         # Checkpoint best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            ckpt_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_best.pth")
+            ckpt_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_{loss}_best.pth")
             torch.save(model.state_dict(), ckpt_path)
 
     # Save final model
-    final_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_final.pth")
+    final_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_{loss}_final.pth")
     torch.save(model.state_dict(), final_path)
 
 if __name__ == '__main__':
