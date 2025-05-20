@@ -200,6 +200,8 @@ def main():
     grad_accum_steps = int(cfg.get('gradient_accumulation_steps',1))
     depth_rep = cfg.get('depth_rep', 'hha')
     loss = cfg.get('loss', 'CrossEntropyLoss')
+    augmentation = cfg.get('augmentation', True)
+    ignore_index = cfg.get('ignore_index', None)
 
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -263,9 +265,10 @@ def main():
     output_size = (480, 640)
     joint_tf = JointAugment(output_size)
     train_ds = AugmentedDataset(train_raw, joint_tf)
-   
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True,
+    
+    train_loader = DataLoader(train_ds if augmentation else train_raw , batch_size=batch_size, shuffle=True,
                               num_workers=num_workers, pin_memory=True)
+    
     val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False,
                               num_workers=num_workers, pin_memory=True)
 
@@ -352,12 +355,13 @@ def main():
         # Checkpoint best model
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            ckpt_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_{loss}_best.pth")
+            ckpt_path = os.path.join(out_dir, f"{model_module}_{wandb.run.name}_best.pth")
             torch.save(model.state_dict(), ckpt_path)
 
     # Save final model
-    final_path = os.path.join(out_dir, f"{model_module}_{depth_rep}_{loss}_final.pth")
+    final_path = os.path.join(out_dir, f"{model_module}_{wandb.run.name}_final.pth")
     torch.save(model.state_dict(), final_path)
+
 
 if __name__ == '__main__':
     main()

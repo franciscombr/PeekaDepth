@@ -25,6 +25,7 @@ batch_size: 1
 gradient_accumulation_steps: 16
 epochs: 40
 num_workers: 8
+augmentation: True 
 
 optimizer:
   name: AdamW

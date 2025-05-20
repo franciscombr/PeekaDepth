@@ -1,0 +1,29 @@
+models:
+
+  - name: "Cross Modal Attention (+Finetune)"
+    model_module: "models.vfms.dinov2_cross_modal_attn"
+    model_class: "DINOv2SegmentationModel"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
+    backbone: "dinov2_vitl14"
+    out_classes: 14
+ 
+  - name: "Cross Modal Attention (+Finetune)"
+    model_module: "models.vfms.dinov2_cross_modal_attn"
+    model_class: "DINOv2SegmentationModel"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
+    backbone: "dinov2_vitl14"
+    out_classes: 14
+  
+  - name: "Cross Modal Attention (+Finetune)"
+    model_module: "models.vfms.dinov2_cross_modal_attn"
+    model_class: "DINOv2SegmentationModel"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
+    backbone: "dinov2_vitl14"
+    out_classes: 14
+  
+  - name: "Cross Modal Attention (+Finetune)"
+    model_module: "models.vfms.dinov2_cross_modal_attn"
+    model_class: "DINOv2SegmentationModel"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
+    backbone: "dinov2_vitl14"
+    out_classes: 14
