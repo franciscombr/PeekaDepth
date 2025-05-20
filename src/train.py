@@ -11,9 +11,9 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc, pixel_accuracy, mean_accuracy, frequency_weighted_iou
-
+from utils.compute_invfreq_weights import compute_mfb_weights, compute_samples_per_cls
 from data.augmentations import JointAugment, AugmentedDataset
-
+from cbloss.loss import FocalLoss, ClassBalancedLoss
 import wandb
 
 from nyuv2 import NYUv2
@@ -199,6 +199,7 @@ def main():
     out_dir        = cfg.get('out_dir', './checkpoints')
     grad_accum_steps = int(cfg.get('gradient_accumulation_steps',1))
     depth_rep = cfg.get('depth_rep', 'hha')
+    loss = cfg.get('loss', 'CrossEntropyLoss')
 
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -274,7 +275,22 @@ def main():
     wandb.watch(model, log="all", log_freq=50)
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss(ignore_index=0)
+    if loss == 'CrossEntropyLoss':
+        criterion = nn.CrossEntropyLoss(ignore_index=0)
+    elif loss == 'FocalLoss':
+        base_focal = FocalLoss(
+            num_classes=num_classes,
+            gamma=2.0,
+            alpha=1,
+            reduction='none'
+        )
+        criterion = ClassBalancedLoss(
+            samples_per_cls=compute_samples_per_cls(train_loader, 14, None),
+            beta=0.99,
+            num_classes=num_classes,
+            loss_func=base_focal
+        )
+
     optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
     if cfg["lr_scheduler"]["name"] == "poly":
         def lr_lambda(step):

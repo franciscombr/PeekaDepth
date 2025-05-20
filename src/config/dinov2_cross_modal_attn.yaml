@@ -13,7 +13,7 @@ model_module: "models.vfms.dinov2_cross_modal_attn"
 model_class: "DINOv2SegmentationModel"
 
 depth_rep: "regular"
-
+loss: "FocalLoss"
 # Encoder backbone and weight options
 backbone: "dinov2_vitl14"
 pretrained: true          # whether to load pretrained ImageNet weights

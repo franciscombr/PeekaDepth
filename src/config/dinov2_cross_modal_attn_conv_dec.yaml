@@ -8,21 +8,21 @@
 data_root: "/nas-ctm01/datasets/public/NYUv2"
 #data_root: "/home/francisco.m.ribeiro/PDEEC/VC/Assignment 2/rgbd-align/data/raw/NYUv2"
 # Python module containing your model definition (e.g. unet_rgbd.py)
-model_module: "models.vfms.dinov2_cross_modal_attn"
+model_module: "models.vfms.dinov2_cross_modal_attn_conv_decoder"
 # Class name of the model to instantiate
 model_class: "DINOv2SegmentationModel"
 
-depth_rep: "regular"
+depth_rep: "hha"
 
 # Encoder backbone and weight options
 backbone: "dinov2_vitl14"
 pretrained: true          # whether to load pretrained ImageNet weights
-freeze_encoder: true     # if true, encoder weights are frozen
+freeze_encoder: false     # if true, encoder weights are frozen
 
 # Training parameters
 num_classes: 14           # number of segmentation output channels
-batch_size: 1
-gradient_accumulation_steps: 16
+batch_size: 8
+gradient_accumulation_steps: 2
 epochs: 40
 num_workers: 8
 
