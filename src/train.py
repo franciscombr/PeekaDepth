@@ -330,7 +330,8 @@ def main():
                 pg.append({
                     "params": enc_params,
                     "lr": float(sched.get("lr_encoder",
-                                    cfg["optimizer"]["param_groups"][0]["lr"]))
+                                    cfg["optimizer"]["param_groups"][0]["lr"])),
+                    "name": "encoder"
                 })
             # decoder group
             dec_params = [p for p in model.decoder.parameters() if p.requires_grad]
@@ -338,7 +339,8 @@ def main():
                 pg.append({
                     "params": dec_params,
                     "lr": float(sched.get("lr_decoder",
-                                    cfg["optimizer"]["param_groups"][1]["lr"]))
+                                    cfg["optimizer"]["param_groups"][1]["lr"])),
+                    "name": "decoder"
                 })
             optimizer = getattr(torch.optim, cfg["optimizer"]["name"])(pg,
                                                                        weight_decay=float(cfg.get("weight_decay",0.0)))
@@ -374,6 +376,8 @@ def main():
            f"AUROC(val): {val_metrics['val_AUROC']:.4f}"
         )
 
+        lrs = { g["name"]: g["lr"] for g in optimizer.param_groups if "name" in g }
+
         wandb.log({
           "epoch":                     epoch,
           "train_loss":                train_loss,
@@ -396,8 +400,8 @@ def main():
           "val_ECE":                       val_metrics['val_ECE'],
           "val_AUROC":                     val_metrics['val_AUROC'],
 
-          "lr_encoder":               optimizer.param_groups[0]['lr'],
-          "lr_decoder":               optimizer.param_groups[1]['lr']
+          "lr_encoder":               lrs.get("encoder"),
+          "lr_decoder":               lrs.get("decoder")
         })
 
         # Checkpoint best model
