@@ -293,11 +293,11 @@ def main():
             ignore_index=ignore_index,
         ).to(device)
         
-    #optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
-    #if cfg["lr_scheduler"]["name"] == "poly":
-    #    def lr_lambda(step):
-    #        return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
-    #    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
+    if cfg["lr_scheduler"]["name"] == "poly":
+        def lr_lambda(step):
+            return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Prepare output directory
     os.makedirs(out_dir, exist_ok=True)
