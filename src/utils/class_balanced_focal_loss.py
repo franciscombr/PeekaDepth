@@ -5,7 +5,6 @@ import torch.nn.functional as F
 class BalancedFocalLoss(nn.Module):
     def __init__(
         self,
-        device,
         samples_per_class: list,
         gamma: float = 2.0,
         ignore_index: int = None,
