@@ -45,7 +45,7 @@ lr_scheduler:
 out_dir: "./checkpoints"
 
 freeze_schedule:
-  - epoch: 2
+  - epoch: 1
     # freeze RGB and depth, train only decoder
     freeze_rgb: true
     freeze_depth: false 
