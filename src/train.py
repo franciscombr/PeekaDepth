@@ -79,7 +79,7 @@ def evaluate(model, loader, criterion, device, depth_rep):
             running_loss += loss.item() * inputs.size(0)
     return running_loss / len(loader.dataset)
 
-def evaluate_metrics(model, loader, device, num_classes, depth_rep, ignore_index=0, n_bins=10):
+def evaluate_metrics(model, loader, device, num_classes, depth_rep, criterion, ignore_index=0, n_bins=10):
     """
     Runs evaluation over loader and returns a dict of segmentation metrics:
     - Pixel Accuracy
@@ -92,6 +92,7 @@ def evaluate_metrics(model, loader, device, num_classes, depth_rep, ignore_index
     """
     model.eval()
     all_conf, all_pred, all_tgt = [], [], []
+    running_loss = 0
     with torch.no_grad():
         for rgb, seg, depth, hha in loader:
             rgb, depth, seg, hha= rgb.to(device), depth.to(device), seg.to(device), hha.to(device)
@@ -112,9 +113,14 @@ def evaluate_metrics(model, loader, device, num_classes, depth_rep, ignore_index
             conf, pred = probs.max(dim=1)
             tgt = seg.squeeze(1)
 
+            loss = criterion(logits, tgt)
+            running_loss += loss.item() * inputs.size(0)
+
             all_conf.append(conf.cpu().flatten())
             all_pred.append(pred.cpu().flatten())
             all_tgt.append(tgt.cpu().flatten())
+
+    val_loss = running_loss / len(loader.dataset)
 
     all_conf = torch.cat(all_conf).numpy()
     all_pred = torch.cat(all_pred).numpy()
@@ -138,6 +144,7 @@ def evaluate_metrics(model, loader, device, num_classes, depth_rep, ignore_index
     auc = pixel_auroc(all_conf, correctness, ignore_mask=valid_mask)
 
     return {
+        "val_loss":                    val_loss,
         "val_PixelAccuracy":           pix_acc,
         "val_MeanAccuracy":            mean_acc,
         "val_MeanIoU":                 miou,
@@ -299,9 +306,9 @@ def main():
     # Training loop
     for epoch in range(1, epochs + 1):
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler, depth_rep)
-        val_loss = evaluate(model, val_loader, criterion, device, depth_rep)
-        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, ignore_index=ignore_index)
-        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, depth_rep, ignore_index=ignore_index)
+        #val_loss = evaluate(model, val_loader, criterion, device, depth_rep)
+        train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, criterion, ignore_index=ignore_index)
+        val_metrics   = evaluate_metrics(model, val_loader,   device, num_classes, depth_rep, criterion, ignore_index=ignore_index)
 
 
         print(
@@ -314,7 +321,7 @@ def main():
            f"WorstIoU(train): {train_metrics['val_WorstClassIoU']:.4f} | "
            f"ECE(train): {train_metrics['val_ECE']:.4f} | "
            f"AUROC(train): {train_metrics['val_AUROC']:.4f} || "
-           f"Val Loss: {val_loss:.4f} | "
+           f"Val Loss: {val_metrics['val_loss']:.4f} | "
            f"PixelAcc(val): {val_metrics['val_PixelAccuracy']:.4f} | "
            f"MeanAcc(val): {val_metrics['val_MeanAccuracy']:.4f} | "
            f"mIoU(val): {val_metrics['val_MeanIoU']:.4f} | "
@@ -327,7 +334,7 @@ def main():
         wandb.log({
           "epoch":                     epoch,
           "train_loss":                train_loss,
-          "val_loss":                  val_loss,
+          "val_loss":                  val_metrics['val_loss'],
 
           # Expanded segmentation metrics
           "train_PixelAccuracy":           train_metrics['val_PixelAccuracy'],
@@ -351,8 +358,8 @@ def main():
         })
 
         # Checkpoint best model
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if val_metrics['val_loss'] < best_val_loss:
+            best_val_loss = val_metrics['val_loss']
             ckpt_path = os.path.join(out_dir, f"{model_module}_{wandb.run.name}_best.pth")
             torch.save(model.state_dict(), ckpt_path)
 
