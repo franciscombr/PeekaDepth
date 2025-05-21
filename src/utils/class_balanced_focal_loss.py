@@ -75,3 +75,86 @@ class BalancedFocalLoss(nn.Module):
             return loss.sum()
         else:  # 'none'
             return loss
+
+class ClassBalancedFocalDiceLoss(nn.Module):
+    def __init__(
+        self,
+        samples_per_class: list,
+        gamma: float = 2.0,
+        ignore_index: int = None,
+        eps: float = 1e-6
+    ):
+        """
+        Implements:
+          (1) Class-Balanced Focal Loss  L_CBF = -(1/N) sum_i sum_j w_j (1-p_ij)^γ y_ij log p_ij
+          (2) w_j = 1 - f_j / sum_k f_k
+          (3) Dice loss per-class
+          (4) L = 0.5*Dice + 0.5*L_CBF
+
+        samples_per_class: [f_1, …, f_m]
+        """
+        super().__init__()
+        counts = torch.as_tensor(samples_per_class, dtype=torch.float)
+        total = counts.sum()
+        # Eq.(2):
+        weights = 1.0 - counts / (total + eps)
+        # zero out ignored class
+        if ignore_index is not None and 0 <= ignore_index < len(weights):
+            weights[ignore_index] = 0.0
+
+        self.register_buffer("class_weights", weights)
+        self.gamma = gamma
+        self.ignore_index = ignore_index
+        self.eps = eps
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        B, C, H, W = logits.shape
+        N = B * H * W
+
+        # flatten
+        logit_flat = logits.permute(0,2,3,1).reshape(-1, C)   # [N, C]
+        tgt_flat   = targets.view(-1)                         # [N]
+
+        # mask valid pixels
+        if self.ignore_index is not None:
+            valid_mask = tgt_flat != self.ignore_index
+        else:
+            valid_mask = torch.ones_like(tgt_flat, dtype=torch.bool)
+
+        # --- Class‐Balanced Focal (Eq.1) ---
+        log_p = F.log_softmax(logit_flat, dim=1)              # [N, C]
+        p     = log_p.exp()                                   # [N, C]
+
+        idx        = torch.arange(logit_flat.size(0), device=logits.device)
+        true_logp  = log_p[idx, tgt_flat]                     # [N]
+        true_p     = p[idx,    tgt_flat]                      # [N]
+
+        focal_fac  = (1 - true_p).pow(self.gamma)              # [N]
+        w          = self.class_weights.to(logits.device)     # [C]
+        sample_w   = w[tgt_flat]                              # [N]
+
+        cb_focal   = - sample_w * focal_fac * true_logp       # [N]
+        cb_focal   = cb_focal[valid_mask].mean()              # scalar
+
+        # --- Dice (Eq.3) ---
+        probs      = logit_flat.softmax(dim=1)                # [N, C]
+        with torch.no_grad():
+            one_hot = F.one_hot(tgt_flat.clamp(min=0), C).float()  # [N, C]
+
+        probs  = probs[valid_mask]
+        one_hot= one_hot[valid_mask]
+
+        inter  = (probs * one_hot).sum(dim=0)                  # [C]
+        denom  = one_hot.sum(dim=0) + (probs*probs).sum(dim=0) + self.eps  # [C]
+        dice_c = 1 - 2*inter/denom                             # [C]
+
+        # drop ignore class
+        if self.ignore_index is not None:
+            mask_c = torch.ones(C, dtype=torch.bool, device=logits.device)
+            mask_c[self.ignore_index] = False
+            dice_c = dice_c[mask_c]
+
+        dice_loss = dice_c.mean()                              # scalar
+
+        # --- Combine (Eq.4) ---
+        return 0.5 * dice_loss + 0.5 * cb_focal

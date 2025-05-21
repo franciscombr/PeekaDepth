@@ -13,7 +13,7 @@ from torchvision import transforms
 from utils.metrics import compute_confusion_matrix, mean_iou, worst_class_iou, expected_calibration_error, pixel_auroc, pixel_accuracy, mean_accuracy, frequency_weighted_iou
 from utils.compute_invfreq_weights import compute_mfb_weights, compute_samples_per_cls
 from data.augmentations import JointAugment, AugmentedDataset
-from utils.class_balanced_focal_loss import BalancedFocalLoss
+from utils.class_balanced_focal_loss import BalancedFocalLoss, ClassBalancedFocalDiceLoss
 import wandb
 
 from nyuv2 import NYUv2
@@ -125,7 +125,6 @@ def evaluate_metrics(model, loader, device, num_classes, depth_rep, ignore_index
 
     # confusion matrix
     cm = compute_confusion_matrix(all_pred, all_tgt, num_classes, ignore_index)
-
     # basic segmentation metrics
     pix_acc = pixel_accuracy(cm)
     mean_acc = mean_accuracy(cm)
@@ -281,13 +280,13 @@ def main():
     if loss == 'CrossEntropyLoss':
         criterion = nn.CrossEntropyLoss(ignore_index=ignore_index)
     elif loss == 'FocalLoss':
-        criterion = BalancedFocalLoss(
+        criterion = ClassBalancedFocalDiceLoss(
             samples_per_class=compute_samples_per_cls(train_loader,num_classes,None),
             gamma=2.0,
             ignore_index=ignore_index,
             reduction="mean"
-        ) 
-        criterion.to(device)
+        ).to(device)
+        
     optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
     if cfg["lr_scheduler"]["name"] == "poly":
         def lr_lambda(step):
