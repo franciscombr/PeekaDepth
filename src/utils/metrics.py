@@ -2,25 +2,40 @@ import numpy as np
 import torch
 from sklearn.metrics import roc_auc_score
 
-def compute_confusion_matrix(preds, labels, num_classes, ignore_index=None):
+def compute_confusion_matrix(
+    preds: np.ndarray,
+    labels: np.ndarray,
+    num_classes: int,
+    ignore_index: int = None
+) -> np.ndarray:
     """
-    preds, labels: 1D numpy arrays of shape (N,)
+    preds, labels: 1D integer arrays of shape (N,)
     ignore_index: integer label to skip (e.g. 0), or None.
-    returns: num_classes x num_classes matrix, cm[i,j]=# true=i predicted=j
+    returns: M x M matrix, where
+             M = num_classes if ignore_index is None
+             M = num_classes-1 Otherwise
     """
-    mask = np.ones_like(labels, dtype=bool)
+    # Mask out the ignored true labels
     if ignore_index is not None:
         mask = labels != ignore_index
+        valid_labels = labels[mask]
+        valid_preds  = preds[mask]
+        M = num_classes - 1
+        # Now shift all class‐IDs > ignore_index down by 1
+        valid_labels = valid_labels - (valid_labels > ignore_index).astype(int)
+        valid_preds  = valid_preds  - (valid_preds  > ignore_index).astype(int)
+    else:
+        valid_labels = labels
+        valid_preds  = preds
+        M = num_classes
 
-    valid_labels = labels[mask]
-    valid_preds  = preds[mask]
-
+    # Build the confusion matrix in flat form, then reshape
     hist = np.bincount(
-        num_classes * valid_labels.astype(int) + valid_preds.astype(int),
-        minlength=num_classes**2
-    ).reshape(num_classes, num_classes)
-    return hist
+        M * valid_labels.astype(int) + valid_preds.astype(int),
+        minlength=M**2
+    ).reshape(M, M)
 
+    return hist
 
 def pixel_accuracy(conf_mat):
     """

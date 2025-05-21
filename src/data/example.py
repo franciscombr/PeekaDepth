@@ -53,4 +53,9 @@ def show_samples(dataset, n=3):
     plt.show()
 
 # ---------- run ----------
-show_samples(train_ds, n=3)
+#show_samples(train_ds, n=3)
+
+rgb, seg, depth, hha = train_ds[1]
+print(seg.shape)
+print(seg.squeeze(0).shape)
+print(seg[seg!=0])
