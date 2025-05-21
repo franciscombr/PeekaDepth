@@ -284,7 +284,6 @@ def main():
             samples_per_class=compute_samples_per_cls(train_loader,num_classes,None),
             gamma=2.0,
             ignore_index=ignore_index,
-            reduction="mean"
         ).to(device)
         
     optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
