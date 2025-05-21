@@ -179,6 +179,11 @@ def main():
     with open(args.config, 'r') as f:
         cfg = yaml.safe_load(f)
 
+    # turn the list into a dict for O(1) lookup by epoch:
+    freeze_schedule = {
+        e["epoch"]: e
+        for e in cfg.get("freeze_schedule", [])
+    }
 
     # ── W&B init ────────────────────────────────────────────────────────────
     wandb.init(
@@ -219,11 +224,6 @@ def main():
                        
                        out_classes=num_classes)
     
-    if freeze_encoder:
-        model.freeze_encoder()
-    else:
-        model.unfreeze_encoder()
-
     model = model.to(device)
 
      # Data transformations
@@ -293,11 +293,11 @@ def main():
             ignore_index=ignore_index,
         ).to(device)
         
-    optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
-    if cfg["lr_scheduler"]["name"] == "poly":
-        def lr_lambda(step):
-            return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    #optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
+    #if cfg["lr_scheduler"]["name"] == "poly":
+    #    def lr_lambda(step):
+    #        return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
+    #    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Prepare output directory
     os.makedirs(out_dir, exist_ok=True)
@@ -305,6 +305,49 @@ def main():
 
     # Training loop
     for epoch in range(1, epochs + 1):
+        # 1) check if we have a schedule for this epoch
+        sched = freeze_schedule.get(epoch)
+        if sched:
+            # 2) toggle each component
+            if "freeze_rgb" in sched:
+                (model.freeze_rgb_encoder()
+                  if sched["freeze_rgb"]
+                  else model.unfreeze_rgb_encoder())
+            if "freeze_depth" in sched:
+                (model.freeze_depth_encoder()
+                  if sched["freeze_depth"]
+                  else model.unfreeze_depth_encoder())
+            if "freeze_decoder" in sched:
+                (model.freeze_decoder()
+                  if sched["freeze_decoder"]
+                  else model.unfreeze_decoder())
+
+            # 3) rebuild optimizer param-groups so only trainable params remain
+            pg = []
+            # encoder group (rgb+depth both live in encoder)
+            enc_params = [p for p in model.encoder.parameters() if p.requires_grad]
+            if enc_params:
+                pg.append({
+                    "params": enc_params,
+                    "lr": sched.get("lr_encoder",
+                                    cfg["optimizer"]["param_groups"][0]["lr"])
+                })
+            # decoder group
+            dec_params = [p for p in model.decoder.parameters() if p.requires_grad]
+            if dec_params:
+                pg.append({
+                    "params": dec_params,
+                    "lr": sched.get("lr_decoder",
+                                    cfg["optimizer"]["param_groups"][1]["lr"])
+                })
+            optimizer = getattr(torch.optim, cfg["optimizer"]["name"])(pg,
+                                                                       weight_decay=cfg.get("weight_decay",0.0))
+
+            # 4) re-attach your scheduler to the new optimizer
+            if cfg["lr_scheduler"]["name"] == "poly":
+                def lr_lambda(step):
+                    return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
+                scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler, depth_rep)
         #val_loss = evaluate(model, val_loader, criterion, device, depth_rep)
         train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, criterion, ignore_index=ignore_index)

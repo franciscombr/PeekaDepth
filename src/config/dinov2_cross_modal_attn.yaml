@@ -32,9 +32,9 @@ optimizer:
   weight_decay: 0.05
   param_groups:
     - module: encoder
-      lr: 1e-5
-    - module: decoder
       lr: 1e-4
+    - module: decoder
+      lr: 1e-3
 
 lr_scheduler: 
   name: poly
@@ -43,3 +43,25 @@ lr_scheduler:
 
 # Directory where checkpoints will be saved
 out_dir: "./checkpoints"
+
+freeze_schedule:
+  - epoch: 1
+    # freeze RGB and depth, train only decoder
+    freeze_rgb: true
+    freeze_depth: false 
+    freeze_decoder: true
+
+  - epoch: 5 
+    freeze_rgb: true
+    freeze_depth: false
+    freeze_decoder: false
+    lr_encoder: 1e-5
+    lr_decoder: 1e-4
+
+  - epoch: 10
+    # finally unfreeze everything
+    freeze_rgb: false
+    freeze_depth: false
+    freeze_decoder: false
+    lr_encoder: 1e-5
+    lr_decoder: 1e-4
