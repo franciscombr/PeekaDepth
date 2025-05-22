@@ -94,7 +94,7 @@ class DINOv2SegmentationModel(nn.Module):
     def freeze_depth_encoder(self):   self._set_component_trainable("depth_encoder", False)
     def unfreeze_depth_encoder(self): self._set_component_trainable("depth_encoder", True)
     def freeze_rgb_encoder(self):         self._set_component_trainable("rgb_encoder", False)
-    def unfreeze_rgb_encoder(self):       self._set_component_trainable("rgp_encoder", True)
+    def unfreeze_rgb_encoder(self):       self._set_component_trainable("rgb_encoder", True)
     def freeze_decoder(self):         self._set_component_trainable("decoder", False)
     def unfreeze_decoder(self):       self._set_component_trainable("decoder", True)
 
