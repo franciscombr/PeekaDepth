@@ -29,8 +29,9 @@ class DepthPatchEncoder(nn.Module):
         return x
 
 class CrossAttentionAdapter(nn.Module):
-    def __init__(self, embed_dim, num_heads=8, dropout=0.1):
+    def __init__(self, embed_dim, num_heads=8, dropout=0.1, moddrop_p=0.3):
         super().__init__()
+        self.moddrop_p = moddrop_p
         self.cross_attn = nn.MultiheadAttention(
             embed_dim, num_heads, dropout=dropout, batch_first=True
         )
@@ -43,19 +44,24 @@ class CrossAttentionAdapter(nn.Module):
         self.norm2 = nn.LayerNorm(embed_dim)
 
     def forward(self, rgb_seq, depth_seq):
-        # ─── ensure depth_seq is 3-D ─────────────────────────
+        # ─── ensure depth_seq is 3-D ─────────────────────────────
         if depth_seq.dim() == 4:
             B, D, h, w = depth_seq.shape
-            # flatten spatial dims into sequence
-            depth_seq = depth_seq.flatten(2)          # (B, D, h*w)
-            depth_seq = depth_seq.transpose(1, 2)     # (B, h*w, D)
-        # now depth_seq is (B, N_depth, D)
+            depth_seq = depth_seq.flatten(2).transpose(1, 2)  # (B, N_depth=h*w, D)
 
-        # ─── do cross‐attention ─────────────────────────────
-        attn_out, _  = self.cross_attn(
-            query=rgb_seq,   # (B, N_rgb, D)
-            key=depth_seq,   # (B, N_depth, D)
-            value=depth_seq  # (B, N_depth, D)
+        # ─── token-wise ModDrop on RGB tokens ─────────────────────
+        if self.training and self.moddrop_p > 0:
+            B, N, C = rgb_seq.shape
+            # create a mask of shape (B, N, 1) with 0s dropped at probability p
+            keep_mask = (torch.rand(B, N, 1, device=rgb_seq.device) 
+                         > self.moddrop_p).float()
+            rgb_seq = rgb_seq * keep_mask
+
+        # ─── cross‐attention fusion ───────────────────────────────
+        attn_out, _ = self.cross_attn(
+            query=rgb_seq,    # (B, N_rgb, C)
+            key=depth_seq,    # (B, N_depth, C)
+            value=depth_seq   # (B, N_depth, C)
         )
         x = self.norm1(rgb_seq + attn_out)
         x = self.norm2(x + self.ffn(x))
