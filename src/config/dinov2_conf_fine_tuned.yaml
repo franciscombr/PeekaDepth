@@ -12,10 +12,11 @@ model_module: "models.vfms.dinov2_linear_decoder"
 # Class name of the model to instantiate
 model_class: "DINOv2SegmentationModel"
 
+depth_rep: "hha"
+loss: "CrossEntropyLoss"
 # Encoder backbone and weight options
 backbone: "dinov2_vitl14"
 pretrained: true          # whether to load pretrained ImageNet weights
-freeze_encoder: false     # if true, encoder weights are frozen
 
 # Training parameters
 num_classes: 14           # number of segmentation output channels
@@ -23,6 +24,7 @@ batch_size: 8
 gradient_accumulation_steps: 2
 epochs: 40
 num_workers: 8
+augmentation: True
 
 optimizer:
   name: AdamW
@@ -40,3 +42,15 @@ lr_scheduler:
 
 # Directory where checkpoints will be saved
 out_dir: "../results/checkpoints"
+
+freeze_schedule:
+  - epoch: 1
+    # freeze RGB and depth, train only decoder
+    freeze_rgb: true
+    freeze_decoder: false 
+
+  - epoch: 5 
+    freeze_rgb: false 
+    freeze_decoder: false
+    lr_encoder: 1e-5
+    lr_decoder: 1e-4

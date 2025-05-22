@@ -12,15 +12,40 @@ class DINOv2SegmentationModel(nn.Module):
         self.out_classes = out_classes
         self.decoder = nn.Linear(self.encoder.embed_dim, out_classes)
 
-    def freeze_encoder(self):
-            for p in self.encoder.parameters():
-                p.requires_grad = False
-            self.encoder.eval()
+    def _set_component_trainable(self, component: str, trainable: bool):
+        """
+        component: one of {"rgb_encoder", "depth_encoder", "decoder"}
+        trainable: True to unfreeze, False to freeze
+        """
+        if component == "rgb_encoder":
+            modules = [self.encoder]
+        elif component == "decoder":
+            modules = [self.decoder]
+        else:
+            raise ValueError(f"Unknown component '{component}'")
 
-    def unfreeze_encoder(self):
-            for p in self.encoder.parameters():
-                p.requires_grad = True
-            self.encoder.train()
+        for module in modules:
+            # toggle grad
+            for p in module.parameters():
+                p.requires_grad = trainable
+            # toggle train/eval mode
+            if trainable:
+                module.train()
+            else:
+                module.eval()
+
+    # RGB encoder
+    def freeze_rgb_encoder(self):
+        self._set_component_trainable("rgb_encoder", False)
+    def unfreeze_rgb_encoder(self):
+        self._set_component_trainable("rgb_encoder", True)
+
+    # Decoder head
+    def freeze_decoder(self):
+        self._set_component_trainable("decoder", False)
+    def unfreeze_decoder(self):
+        self._set_component_trainable("decoder", True)
+
 
     def forward(self, x):
         new_height =  (x.shape[2] // self.patch_size) * self.patch_size 
