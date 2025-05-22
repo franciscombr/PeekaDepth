@@ -8,14 +8,14 @@ class DepthPatchEncoder(nn.Module):
         # one conv = one “patch embedding”
         self.patch_size = patch_size
         self.proj = nn.Conv2d(
-            in_channels=1,
+            in_channels=3,
             out_channels=embed_dim,
             kernel_size=patch_size,
             stride=patch_size
         )
     def forward(self, x_depth):
         """
-        x_depth: (B,1,H,W)  — single‐channel depth map
+        x_depth: (B,3,H,W)  — 3‐channel depth map
         returns: (B, N, C)  — sequence of patch embeddings
         """
         # apply patch‐conv
@@ -52,11 +52,11 @@ class DINOv2SegmentationModel(nn.Module):
         self.out_classes = out_classes
 
         # RGB DINOv2  gives embed_dim
-        self.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
-        C = self.rgb_encoder.embed_dim
+        self.encoder.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
+        C = self.encoder.rgb_encoder.embed_dim
 
         # tiny depth patch encoder
-        self.depth_encoder = DepthPatchEncoder(patch_size, C)
+        self.encoder.depth_encoder = DepthPatchEncoder(patch_size, C)
 
         # cross-attention adapter
         self.adapter = CrossAttentionAdapter(C, num_heads=adapter_heads)
@@ -66,8 +66,8 @@ class DINOv2SegmentationModel(nn.Module):
 
     def _set_component_trainable(self, name, trainable:bool):
         mp = {
-            "rgb_encoder": [self.rgb_encoder],
-            "depth_encoder":[self.depth_encoder, self.adapter],
+            "rgb_encoder": [self.encoder.rgb_encoder],
+            "depth_encoder":[self.encoder.depth_encoder, self.adapter],
             "decoder":      [self.decoder],
         }
         if name not in mp:
