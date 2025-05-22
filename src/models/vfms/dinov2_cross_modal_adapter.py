@@ -43,7 +43,20 @@ class CrossAttentionAdapter(nn.Module):
         self.norm2 = nn.LayerNorm(embed_dim)
 
     def forward(self, rgb_seq, depth_seq):
-        attn_out, _ = self.cross_attn(rgb_seq, depth_seq, depth_seq)
+        # ─── ensure depth_seq is 3-D ─────────────────────────
+        if depth_seq.dim() == 4:
+            B, D, h, w = depth_seq.shape
+            # flatten spatial dims into sequence
+            depth_seq = depth_seq.flatten(2)          # (B, D, h*w)
+            depth_seq = depth_seq.transpose(1, 2)     # (B, h*w, D)
+        # now depth_seq is (B, N_depth, D)
+
+        # ─── do cross‐attention ─────────────────────────────
+        attn_out, _  = self.cross_attn(
+            query=rgb_seq,   # (B, N_rgb, D)
+            key=depth_seq,   # (B, N_depth, D)
+            value=depth_seq  # (B, N_depth, D)
+        )
         x = self.norm1(rgb_seq + attn_out)
         x = self.norm2(x + self.ffn(x))
         return x
