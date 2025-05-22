@@ -3,13 +3,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class DepthPatchEncoder(nn.Module):
-    def __init__(self, patch_size:int, embed_dim:int):
+    def __init__(self, backbone: str, patch_size:int = 14, num_heads:int = 8):
         super().__init__()
         # one conv = one “patch embedding”
         self.patch_size = patch_size
-        self.proj = nn.Conv2d(
+
+        self.rgb_backbone = torch.hub.load('facebookresearch/dinov2', backbone)
+        D = self.rgb_backbone.embed_dim
+        self.depth_proj = nn.Conv2d(
             in_channels=3,
-            out_channels=embed_dim,
+            out_channels=D,
             kernel_size=patch_size,
             stride=patch_size
         )
@@ -19,7 +22,7 @@ class DepthPatchEncoder(nn.Module):
         returns: (B, N, C)  — sequence of patch embeddings
         """
         # apply patch‐conv
-        x = self.proj(x_depth)         # (B, C, H/patch, W/patch)
+        x = self.depth_proj(x_depth)         # (B, C, H/patch, W/patch)
         B, C, h, w = x.shape
         # flatten spatial → N = h*w
         x = x.flatten(2).transpose(1,2)  # (B, N, C)
@@ -52,11 +55,8 @@ class DINOv2SegmentationModel(nn.Module):
         self.out_classes = out_classes
 
         # RGB DINOv2  gives embed_dim
-        self.encoder.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
-        C = self.encoder.rgb_encoder.embed_dim
-
-        # tiny depth patch encoder
-        self.encoder.depth_encoder = DepthPatchEncoder(patch_size, C)
+        self.encoder = DepthPatchEncoder(backbone, patch_size, adapter_heads)
+        C = self.encoder.rgb_backbone.embed_dim
 
         # cross-attention adapter
         self.adapter = CrossAttentionAdapter(C, num_heads=adapter_heads)
@@ -67,7 +67,7 @@ class DINOv2SegmentationModel(nn.Module):
     def _set_component_trainable(self, name, trainable:bool):
         mp = {
             "rgb_encoder": [self.encoder.rgb_encoder],
-            "depth_encoder":[self.encoder.depth_encoder, self.adapter],
+            "depth_encoder":[self.encoder.depth_proj, self.adapter],
             "decoder":      [self.decoder],
         }
         if name not in mp:
@@ -95,8 +95,8 @@ class DINOv2SegmentationModel(nn.Module):
         depth = F.interpolate(x_depth, size=(Hn,Wn), mode='bilinear', align_corners=False)
 
         # 2) get sequences (B, N, C)
-        rgb_seq   = self.rgb_encoder.get_intermediate_layers(rgb,   n=1)[0]
-        depth_seq = self.depth_encoder(depth)
+        rgb_seq   = self.encoder.rgb_encoder.get_intermediate_layers(rgb,   n=1)[0]
+        depth_seq = self.encoder.depth_proj(depth)
 
         # 3) fuse
         fused_seq = self.adapter(rgb_seq, depth_seq)
