@@ -66,7 +66,7 @@ class DINOv2SegmentationModel(nn.Module):
 
     def _set_component_trainable(self, name, trainable:bool):
         mp = {
-            "rgb_encoder": [self.encoder.rgb_encoder],
+            "rgb_encoder": [self.encoder.rgb_backbone],
             "depth_encoder":[self.encoder.depth_proj, self.adapter],
             "decoder":      [self.decoder],
         }
@@ -95,7 +95,7 @@ class DINOv2SegmentationModel(nn.Module):
         depth = F.interpolate(x_depth, size=(Hn,Wn), mode='bilinear', align_corners=False)
 
         # 2) get sequences (B, N, C)
-        rgb_seq   = self.encoder.rgb_encoder.get_intermediate_layers(rgb,   n=1)[0]
+        rgb_seq   = self.encoder.rgb_backbone.get_intermediate_layers(rgb,   n=1)[0]
         depth_seq = self.encoder.depth_proj(depth)
 
         # 3) fuse
