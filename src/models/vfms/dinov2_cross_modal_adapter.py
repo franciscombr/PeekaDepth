@@ -86,13 +86,15 @@ class DINOv2SegmentationModel(nn.Module):
     def unfreeze_decoder(self):       self._set_component_trainable("decoder", True)
 
 
-    def forward(self, x_rgb, x_depth):
-        B,_,H,W = x_rgb.shape
-        # 1) resize both to multiples of patch_size
-        Hn = (H//self.patch_size)*self.patch_size
-        Wn = (W//self.patch_size)*self.patch_size
-        rgb = F.interpolate(x_rgb,  size=(Hn,Wn), mode='bilinear', align_corners=False)
-        depth = F.interpolate(x_depth, size=(Hn,Wn), mode='bilinear', align_corners=False)
+    def forward(self, x: torch.Tensor):
+        B, C, H, W = x.shape
+        assert C == 6, "Expected 6 channels: RGB + 3 depth channels"
+        Hn = (H // self.patch_size) * self.patch_size
+        Wn = (W // self.patch_size) * self.patch_size
+        x = F.interpolate(x, size=(Hn, Wn), mode='bilinear', align_corners=False)
+
+        rgb   = x[:, :3, :, :]
+        depth = x[:, 3:, :, :]
 
         # 2) get sequences (B, N, C)
         rgb_seq   = self.encoder.rgb_backbone.get_intermediate_layers(rgb,   n=1)[0]
