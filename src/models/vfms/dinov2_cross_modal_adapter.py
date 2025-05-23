@@ -10,11 +10,12 @@ class DepthPatchEncoder(nn.Module):
 
         self.rgb_backbone = torch.hub.load('facebookresearch/dinov2', backbone)
         D = self.rgb_backbone.embed_dim
-        self.depth_proj = nn.Conv2d(
-            in_channels=3,
-            out_channels=D,
-            kernel_size=patch_size,
-            stride=patch_size
+        self.depth_proj = nn.Sequential(
+            nn.Conv2d(3, D, kernel_size=7, stride=2, padding=3),
+            nn.BatchNorm2d(D), nn.GELU(),
+            nn.Conv2d(D, D, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(D), nn.GELU(),
+            nn.Conv2d(D, D, kernel_size=patch_size, stride=patch_size)
         )
     def forward(self, x_depth):
         """
@@ -29,7 +30,7 @@ class DepthPatchEncoder(nn.Module):
         return x
 
 class CrossAttentionAdapter(nn.Module):
-    def __init__(self, embed_dim, num_heads=8, dropout=0.1, moddrop_p=0.3):
+    def __init__(self, embed_dim, num_heads=8, dropout=0.1, moddrop_p=0):
         super().__init__()
         self.moddrop_p = moddrop_p
         self.cross_attn = nn.MultiheadAttention(
