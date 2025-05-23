@@ -25,6 +25,8 @@ class DepthPatchEncoder(nn.Module):
 class CrossAttentionAdapter(nn.Module):
     def __init__(self, embed_dim, num_heads=8, dropout=0.1, moddrop_p=0):
         super().__init__()
+
+        self.gate = nn.Parameter(torch.ones(1))
         #normalize each branch before attention
         self.rgb_norm   = nn.LayerNorm(embed_dim)
         self.depth_norm = nn.LayerNorm(embed_dim)
@@ -76,8 +78,6 @@ class DINOv2SegmentationModel(nn.Module):
         # 4) Final per-patch classifier
         self.decoder = nn.Linear(embed_dim, out_classes)
 
-        # Gating parameter (start with only Depth)
-        self.gate = nn.Parameter(torch.ones(1))
 
     def _set_component_trainable(self, name, trainable:bool):
         mp = {
@@ -118,7 +118,7 @@ class DINOv2SegmentationModel(nn.Module):
         depth_seq = self.depth_encoder(depth)                              # (B, N_depth, C)
 
         # Fuse
-        fused_seq = self.gate * self.adapter(rgb_seq, depth_seq) + (1-self.gate) * rgb_seq
+        fused_seq = self.adapter.gate * self.adapter(rgb_seq, depth_seq) + (1-self.adapter.gate) * rgb_seq
 
         # Reshape back to spatial
         N, C = fused_seq.shape[1], fused_seq.shape[2]
