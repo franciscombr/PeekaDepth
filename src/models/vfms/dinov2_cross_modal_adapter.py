@@ -76,8 +76,8 @@ class DINOv2SegmentationModel(nn.Module):
         # 4) Final per-patch classifier
         self.decoder = nn.Linear(embed_dim, out_classes)
 
-        # Gating parameter (start with only RGB)
-        self.gate = nn.Parameter(torch.zeros(0.5))
+        # Gating parameter (start with only Depth)
+        self.gate = nn.Parameter(torch.ones(1))
 
     def _set_component_trainable(self, name, trainable:bool):
         mp = {
