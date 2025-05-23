@@ -157,17 +157,35 @@ def evaluate_metrics(model, loader, device, num_classes, depth_rep, criterion, i
 
 def make_optimizer_from_cfg(model: nn.Module, cfg: Dict) -> torch.optim.Optimizer:
     optim_cls = getattr(torch.optim, cfg["name"])
-    pg_kwargs = []
+    pgroups = []
     for pg in cfg["param_groups"]:
-        submod = getattr(model, pg["module"], None)
+        module_name = pg["module"]
+        submod = getattr(model, module_name, None)
         if submod is None:
-            raise ValueError(f"Model has no attribute '{pg['module']}")
-        pg_kwargs.append({
-            "params": submod.parameters(),
+            print(f"Warning: module '{module_name}' not on model; skipping optimizer group.")
+            continue
+        params = [p for p in submod.parameters() if p.requires_grad]
+        if not params:
+            continue
+        pgroups.append({
+            "params": params,
             "lr": float(pg["lr"]),
-            "weight_decay": float(cfg.get("weight_decay",0.0)),
+            "weight_decay": float(cfg.get("weight_decay", 0.0)),
+            "name": module_name
         })
-    return optim_cls(pg_kwargs)
+    return optim_cls(pgroups)
+
+def build_scheduler(optimizer, cfg):
+    sch_cfg = cfg.get("lr_scheduler", {})
+    if sch_cfg.get("name") == "poly":
+        max_iters = int(sch_cfg["max_iters"])
+        power = float(sch_cfg["power"])
+        def lr_lambda(step):
+            return (1 - step / max_iters) ** power
+        return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    # add other schedulers here if needed
+    return optim.lr_scheduler.StepLR(optimizer, step_size=sch_cfg.get("step_size",10), gamma=sch_cfg.get("gamma",0.1))
+
 
 def main():
     parser = argparse.ArgumentParser(description="Train a segmentation model on NYUv2 RGB-D data using a config file.")
@@ -293,11 +311,9 @@ def main():
             ignore_index=ignore_index,
         ).to(device)
         
-    #optimizer = make_optimizer_from_cfg(model, cfg["optimizer"])
-    #if cfg["lr_scheduler"]["name"] == "poly":
-    #    def lr_lambda(step):
-    #        return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
-    #    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    # INITIAL optimizer & scheduler
+    optimizer = make_optimizer_from_cfg(model, config.optimizer)
+    scheduler = build_scheduler(optimizer, config)
 
     # Prepare output directory
     os.makedirs(out_dir, exist_ok=True)
@@ -305,51 +321,18 @@ def main():
 
     # Training loop
     for epoch in range(1, epochs + 1):
-        # 1) check if we have a schedule for this epoch
-        sched = freeze_schedule.get(epoch)
-        if sched:
-            # 2) toggle each component
-            if "freeze_rgb" in sched:
-                (model.freeze_rgb_encoder()
-                  if sched["freeze_rgb"]
-                  else model.unfreeze_rgb_encoder())
-            if "freeze_depth" in sched:
-                (model.freeze_depth_encoder()
-                  if sched["freeze_depth"]
-                  else model.unfreeze_depth_encoder())
-            if "freeze_decoder" in sched:
-                (model.freeze_decoder()
-                  if sched["freeze_decoder"]
-                  else model.unfreeze_decoder())
 
-            # 3) rebuild optimizer param-groups so only trainable params remain
-            pg = []
-            # encoder group (rgb+depth both live in encoder)
-            enc_params = [p for p in model.encoder.parameters() if p.requires_grad]
-            if enc_params:
-                pg.append({
-                    "params": enc_params,
-                    "lr": float(sched.get("lr_encoder",
-                                    cfg["optimizer"]["param_groups"][0]["lr"])),
-                    "name": "encoder"
-                })
-            # decoder group
-            dec_params = [p for p in model.decoder.parameters() if p.requires_grad]
-            if dec_params:
-                pg.append({
-                    "params": dec_params,
-                    "lr": float(sched.get("lr_decoder",
-                                    cfg["optimizer"]["param_groups"][1]["lr"])),
-                    "name": "decoder"
-                })
-            optimizer = getattr(torch.optim, cfg["optimizer"]["name"])(pg,
-                                                                       weight_decay=float(cfg.get("weight_decay",0.0)))
+        # Apply any freeze/unfreeze at this epoch
+        sched = freeze_schedule.get(epoch, {})
+        for comp in ["rgb_encoder", "depth_encoder", "adapter", "decoder"]:
+            key = f"freeze_{comp.split('_')[0]}" if "_" in comp else f"freeze_{comp}"
+            if key in sched and hasattr(model, f"{'freeze' if sched[key] else 'unfreeze'}_{comp}"):
+                getattr(model, f"{'freeze' if sched[key] else 'unfreeze'}_{comp}")()
+        
+        # REBUILD optimizer so it only has the currently trainable params
+        optimizer = make_optimizer_from_cfg(model, config.optimizer)
+        scheduler = build_scheduler(optimizer, config)
 
-            # 4) re-attach your scheduler to the new optimizer
-            if cfg["lr_scheduler"]["name"] == "poly":
-                def lr_lambda(step):
-                    return (1 - step/int(cfg["lr_scheduler"]["max_iters"]))**float(cfg["lr_scheduler"]["power"])
-                scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device, grad_accum_steps, scheduler, depth_rep)
         #val_loss = evaluate(model, val_loader, criterion, device, depth_rep)
         train_metrics = evaluate_metrics(model, train_loader, device, num_classes, depth_rep, criterion, ignore_index=ignore_index)

@@ -30,10 +30,14 @@ optimizer:
   name: AdamW
   weight_decay: 0.05
   param_groups:
-    - module: encoder
+    - module: rgb_encoder
       lr: 1e-5
+    - module: depth_encoder
+      lr: 1e-3
     - module: decoder
-      lr: 1e-4
+      lr: 1e-3
+    - module: adapter
+      lr: 1e-3
 
 lr_scheduler: 
   name: poly
@@ -44,19 +48,23 @@ lr_scheduler:
 out_dir: "./checkpoints"
 
 freeze_schedule:
+  # Phase 1: Epochs 1–10 → train only depth encoder + adapter
   - epoch: 1
-    # freeze RGB and depth, train only decoder
-    freeze_rgb: true
-    freeze_depth: false 
+    freeze_rgb:     true
+    freeze_depth:   false
     freeze_decoder: true
+    freeze_adapter: false
 
-  - epoch: 10 
-    freeze_rgb: true
-    freeze_depth: false
+  # Phase 2: Epochs 11–25 → add decoder into training
+  - epoch: 11
+    freeze_rgb:     true
+    freeze_depth:   false
     freeze_decoder: false
+    freeze_adapter: false
 
-  #- epoch: 10
-  #  # finally unfreeze everything
-  #  freeze_rgb: false
-  #  freeze_depth: false
-  #  freeze_decoder: false
+  # Phase 3: Epochs 26–40 → full fine-tuning
+  - epoch: 26
+    freeze_rgb:     false
+    freeze_depth:   false
+    freeze_decoder: false
+    freeze_adapter: false
