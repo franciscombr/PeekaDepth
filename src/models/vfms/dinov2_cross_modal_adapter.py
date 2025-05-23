@@ -26,7 +26,7 @@ class CrossAttentionAdapter(nn.Module):
     def __init__(self, embed_dim, num_heads=8, dropout=0.1, moddrop_p=0):
         super().__init__()
 
-        self.gate = nn.Parameter(torch.ones(1))
+        self.gate = nn.Parameter(torch.tensor(0.5))
         #normalize each branch before attention
         self.rgb_norm   = nn.LayerNorm(embed_dim)
         self.depth_norm = nn.LayerNorm(embed_dim)
@@ -84,7 +84,7 @@ class DINOv2SegmentationModel(nn.Module):
             "rgb_encoder": [self.rgb_encoder],
             "depth_encoder":[self.depth_encoder],
             "decoder":      [self.decoder],
-            "adapter": [self.adapter]
+            "adapter":      [self.adapter]
         }
         if name not in mp:
             raise ValueError(f"No such component: {name}")
@@ -100,8 +100,8 @@ class DINOv2SegmentationModel(nn.Module):
     def unfreeze_rgb_encoder(self):   self._set_component_trainable("rgb_encoder", True)
     def freeze_decoder(self):         self._set_component_trainable("decoder", False)
     def unfreeze_decoder(self):       self._set_component_trainable("decoder", True)
-    def freeze_adapter(self):         self._set_component_trainable("adapter", True)
-    def unfreeze_adapter(self):       self._set_component_trainable("adapter", False)
+    def freeze_adapter(self):         self._set_component_trainable("adapter", False)
+    def unfreeze_adapter(self):       self._set_component_trainable("adapter", True)
 
     def forward(self, x: torch.Tensor):
         B, C, H, W = x.shape
