@@ -2,6 +2,45 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class ConvTransposeDecoder(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int):
+        super().__init__()
+        self.decode = nn.Sequential(
+            # reduce feature depth & add nonlinearity
+            nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+
+            # upsample ×2
+            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+
+            # upsample ×2
+            nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+
+            # upsample ×2
+            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+
+            # project to classes
+            nn.Conv2d(64, num_classes, kernel_size=1)
+        )
+    def forward(self, x: torch.Tensor, out_size: tuple[int, int]):
+        """
+        x: (B, in_channels, h, w)
+        out_size: (H, W) – target spatial resolution
+        """
+        x = self.decode(x)
+        # if decode doesn’t exactly hit (H, W), refine with bilinear
+        if x.shape[-2:] != out_size:
+            x = F.interpolate(x, size=out_size,
+                              mode='bilinear', align_corners=False)
+        return x
+
 class DepthPatchEncoder(nn.Module):
     def __init__(self, embed_dim: int, patch_size:int = 14):
         super().__init__()
@@ -76,7 +115,7 @@ class DINOv2SegmentationModel(nn.Module):
         self.adapter = CrossAttentionAdapter(embed_dim, num_heads=adapter_heads)
 
         # 4) Final per-patch classifier
-        self.decoder = nn.Linear(embed_dim, out_classes)
+        self.decoder = ConvTransposeDecoder(embed_dim, out_classes)
 
 
     def _set_component_trainable(self, name, trainable:bool):
@@ -126,7 +165,9 @@ class DINOv2SegmentationModel(nn.Module):
         feat = fused_seq.transpose(1,2).reshape(B, C, h, w)
 
         # Decode to per-pixel logits
-        logits = self.decoder(feat.permute(0,2,3,1))  # (B,h,w,out)
-        logits = logits.permute(0,3,1,2)              # (B,out,h,w)
-        return F.interpolate(logits, size=(H, W), mode='bilinear', align_corners=False)
+        #logits = self.decoder(feat.permute(0,2,3,1))  # (B,h,w,out)
+        #logits = logits.permute(0,3,1,2)              # (B,out,h,w)
+        #return F.interpolate(logits, size=(H, W), mode='bilinear', align_corners=False)
 
+        logits = self.decoder(feat, out_size=(H,W))
+        return logits

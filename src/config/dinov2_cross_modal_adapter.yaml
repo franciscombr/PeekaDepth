@@ -33,11 +33,11 @@ optimizer:
     - module: rgb_encoder
       lr: 1e-5
     - module: depth_encoder
-      lr: 1e-3
+      lr: 1e-4
     - module: decoder
-      lr: 1e-3
+      lr: 1e-4
     - module: adapter
-      lr: 1e-3
+      lr: 1e-4
 
 lr_scheduler: 
   name: poly
