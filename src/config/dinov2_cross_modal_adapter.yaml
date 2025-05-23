@@ -20,8 +20,8 @@ pretrained: true          # whether to load pretrained ImageNet weights
 
 # Training parameters
 num_classes: 14           # number of segmentation output channels
-batch_size: 8
-gradient_accumulation_steps: 2
+batch_size: 4
+gradient_accumulation_steps: 4
 epochs: 40
 num_workers: 8
 augmentation: True 
@@ -50,17 +50,13 @@ freeze_schedule:
     freeze_depth: false 
     freeze_decoder: true
 
-  - epoch: 5 
+  - epoch: 10 
     freeze_rgb: true
     freeze_depth: false
     freeze_decoder: false
-    lr_encoder: 1e-5
-    lr_decoder: 1e-4
 
-  - epoch: 10
-    # finally unfreeze everything
-    freeze_rgb: false
-    freeze_depth: false
-    freeze_decoder: false
-    lr_encoder: 1e-5
-    lr_decoder: 1e-4
+  #- epoch: 10
+  #  # finally unfreeze everything
+  #  freeze_rgb: false
+  #  freeze_depth: false
+  #  freeze_decoder: false
