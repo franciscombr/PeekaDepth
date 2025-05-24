@@ -2,43 +2,90 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class ConvTransposeDecoder(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int):
+        super().__init__()
+        self.decode = nn.Sequential(
+            # reduce feature depth & add nonlinearity
+            nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
+            nn.BatchNorm2d(512),
+            nn.ReLU(inplace=True),
+
+            # upsample ×2
+            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
+            nn.BatchNorm2d(256),
+            nn.ReLU(inplace=True),
+
+            # upsample ×2
+            nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
+            nn.BatchNorm2d(128),
+            nn.ReLU(inplace=True),
+
+            # upsample ×2
+            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=True),
+
+            # project to classes
+            nn.Conv2d(64, num_classes, kernel_size=1)
+        )
+    def forward(self, x: torch.Tensor, out_size: tuple[int, int]):
+        """
+        x: (B, in_channels, h, w)
+        out_size: (H, W) – target spatial resolution
+        """
+        x = self.decode(x)
+        # if decode doesn’t exactly hit (H, W), refine with bilinear
+        if x.shape[-2:] != out_size:
+            x = F.interpolate(x, size=out_size,
+                              mode='bilinear', align_corners=False)
+        return x
+
+
 class DINOv2SegmentationModel(nn.Module):
     def __init__(self, backbone, out_classes):
         super().__init__()
         self.requires_patch_divisible_input = True
         self.patch_size = 14
         self.depth_info = False
-        self.encoder = torch.hub.load('facebookresearch/dinov2', backbone)
+       
+        self.rgb_encoder = torch.hub.load('facebookresearch/dinov2', backbone)
+        embed_dim = self.rgb_encoder.embed_dim
         self.out_classes = out_classes
-        self.decoder = nn.Sequential(
-             nn.Conv2d(self.encoder.embed_dim, 256, kernel_size=3, padding = 1),
-             nn.BatchNorm2d(256),
-             nn.ReLU(inplace=True),
-             nn.ConvTranspose2d(256, self.out_classes, kernel_size=self.patch_size, stride=self.patch_size,
-                                padding=0, output_padding=0),
-            )
+        
+        self.decoder = ConvTransposeDecoder(embed_dim, out_classes)
+            
+    def _set_component_trainable(self, name, trainable:bool):
+            mp = {
+                "rgb_encoder": [self.rgb_encoder],
+                "decoder":      [self.decoder],
+            }
+            if name not in mp:
+                raise ValueError(f"No such component: {name}")
+            for module in mp[name]:
+                for p in module.parameters():
+                    p.requires_grad = trainable
+                module.train() if trainable else module.eval()
 
-    def freeze_encoder(self):
-            for p in self.encoder.parameters():
-                p.requires_grad = False
-            self.encoder.eval()
-
-    def unfreeze_encoder(self):
-            for p in self.encoder.parameters():
-                p.requires_grad = True
-            self.encoder.train()
+        # convenience
+    def freeze_rgb_encoder(self):     self._set_component_trainable("rgb_encoder", False)
+    def unfreeze_rgb_encoder(self):   self._set_component_trainable("rgb_encoder", True)
+    def freeze_decoder(self):         self._set_component_trainable("decoder", False)
+    def unfreeze_decoder(self):       self._set_component_trainable("decoder", True)
+ 
 
     def forward(self, x):
+        B, C, H, W = x.shape
+        assert C == 6, "Expected 3 channels."
         new_height =  (x.shape[2] // self.patch_size) * self.patch_size 
         new_width =  (x.shape[3] // self.patch_size) * self.patch_size 
         x_resized = torch.nn.functional.interpolate(x, size=(new_height, new_width), mode='bilinear', align_corners = False)
         
         features = self.encoder.get_intermediate_layers(x_resized, n=1)[0]  # Shape: (B, N, C)
         B, N, C = features.shape
-        H = (new_height // self.patch_size) 
-        W = (new_width // self.patch_size)
+        h = (new_height // self.patch_size) 
+        w = (new_width // self.patch_size)
         features = features.permute(0, 2, 1).reshape(B, C, H, W)  # (B, C, H, W)
-        logits = self.decoder(features) 
+        logits = self.decoder(features, out_size = (H,W)) 
         
-        logits = F.interpolate(logits, size=x.shape[-2:], mode="bilinear", align_corners=False)
         return logits
