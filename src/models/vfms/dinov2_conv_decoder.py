@@ -76,16 +76,17 @@ class DINOv2SegmentationModel(nn.Module):
 
     def forward(self, x):
         B, C, H, W = x.shape
-        assert C == 6, "Expected 3 channels."
-        new_height =  (x.shape[2] // self.patch_size) * self.patch_size 
-        new_width =  (x.shape[3] // self.patch_size) * self.patch_size 
-        x_resized = torch.nn.functional.interpolate(x, size=(new_height, new_width), mode='bilinear', align_corners = False)
+        assert C == 3, "Expected 3 channels."
+        Hn = (H // self.patch_size) * self.patch_size
+        Wn = (W // self.patch_size) * self.patch_size
+        x = F.interpolate(x, size=(Hn, Wn), mode='bilinear', align_corners=False)
+
         
-        features = self.encoder.get_intermediate_layers(x_resized, n=1)[0]  # Shape: (B, N, C)
-        B, N, C = features.shape
-        h = (new_height // self.patch_size) 
-        w = (new_width // self.patch_size)
-        features = features.permute(0, 2, 1).reshape(B, C, H, W)  # (B, C, H, W)
-        logits = self.decoder(features, out_size = (H,W)) 
+        features = self.rgb_encoder.get_intermediate_layers(x, n=1)[0]  # Shape: (B, N, C)
+        N, C = features.shape[1], features.shape[2]
+        h, w = Hn//self.patch_size, Wn//self.patch_size
+        feat = features.transpose(1,2).reshape(B, C, h, w)
+
+        logits = self.decoder(feat, out_size = (H,W)) 
         
         return logits

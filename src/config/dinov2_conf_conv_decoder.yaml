@@ -49,10 +49,8 @@ freeze_schedule:
     freeze_rgb:     true
     freeze_decoder: false 
 
- # # Phase 2: Epochs 11–25 → add decoder into training
- # - epoch: 11
- #   freeze_rgb:     true
- #   freeze_depth:   false
- #   freeze_decoder: false
- #   freeze_adapter: false
+  ## Phase 2: Epochs 16–40 → add decoder into training
+  #- epoch: 16
+  #  freeze_rgb:     false 
+  #  freeze_decoder: false
 
