@@ -115,8 +115,8 @@ class DINOv2SegmentationModel(nn.Module):
         self.adapter = CrossAttentionAdapter(embed_dim, num_heads=adapter_heads)
 
         # 4) Final per-patch classifier
-        #self.decoder = ConvTransposeDecoder(embed_dim, out_classes)
-        self.decoder = nn.Linear(embed_dim, out_classes)
+        self.decoder = ConvTransposeDecoder(embed_dim, out_classes)
+        #self.decoder = nn.Linear(embed_dim, out_classes)
 
     def _set_component_trainable(self, name, trainable:bool):
         mp = {
@@ -165,9 +165,9 @@ class DINOv2SegmentationModel(nn.Module):
         feat = fused_seq.transpose(1,2).reshape(B, C, h, w)
 
         # Decode to per-pixel logits
-        logits = self.decoder(feat.permute(0,2,3,1))  # (B,h,w,out)
-        logits = logits.permute(0,3,1,2)              # (B,out,h,w)
-        return F.interpolate(logits, size=(H, W), mode='bilinear', align_corners=False)
+        #logits = self.decoder(feat.permute(0,2,3,1))  # (B,h,w,out)
+        #logits = logits.permute(0,3,1,2)              # (B,out,h,w)
+        #return F.interpolate(logits, size=(H, W), mode='bilinear', align_corners=False)
 
-        #logits = self.decoder(feat, out_size=(H,W))
+        logits = self.decoder(feat, out_size=(H,W))
         return logits

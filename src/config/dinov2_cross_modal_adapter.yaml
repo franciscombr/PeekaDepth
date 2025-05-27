@@ -11,6 +11,7 @@ data_root: "/nas-ctm01/datasets/public/NYUv2"
 model_module: "models.vfms.dinov2_cross_modal_adapter"
 # Class name of the model to instantiate
 model_class: "DINOv2SegmentationModel"
+conv_decoder: True
 
 depth_rep: "hha"
 loss: "CrossEntropyLoss"
