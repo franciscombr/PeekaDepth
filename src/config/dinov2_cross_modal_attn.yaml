@@ -11,6 +11,7 @@ data_root: "/nas-ctm01/datasets/public/NYUv2"
 model_module: "models.vfms.dinov2_cross_modal_attn"
 # Class name of the model to instantiate
 model_class: "DINOv2SegmentationModel"
+conv_decoder: False
 
 depth_rep: "hha"
 loss: "CrossEntropyLoss"
@@ -20,8 +21,8 @@ pretrained: true          # whether to load pretrained ImageNet weights
 
 # Training parameters
 num_classes: 14           # number of segmentation output channels
-batch_size: 8
-gradient_accumulation_steps: 2
+batch_size: 4
+gradient_accumulation_steps: 4
 epochs: 40
 num_workers: 8
 augmentation: True 
@@ -30,9 +31,13 @@ optimizer:
   name: AdamW
   weight_decay: 0.05
   param_groups:
-    - module: encoder
+    - module: rgb_encoder
       lr: 1e-5
+    - module: depth_encoder
+      lr: 1e-4
     - module: decoder
+      lr: 1e-4
+    - module: adapter
       lr: 1e-4
 
 lr_scheduler: 
@@ -44,23 +49,23 @@ lr_scheduler:
 out_dir: "./checkpoints"
 
 freeze_schedule:
+  # Phase 1: Epochs 1–10 → train only depth encoder + adapter
   - epoch: 1
-    # freeze RGB and depth, train only decoder
-    freeze_rgb: true
-    freeze_depth: false 
+    freeze_rgb:     true
+    freeze_depth:   false
     freeze_decoder: true
+    freeze_adapter: false
 
-  - epoch: 5 
-    freeze_rgb: true
-    freeze_depth: false
+  # Phase 2: Epochs 11–25 → add decoder into training
+  - epoch: 11
+    freeze_rgb:     false
+    freeze_depth:   false
     freeze_decoder: false
-    lr_encoder: 1e-5
-    lr_decoder: 1e-4
+    freeze_adapter: false
 
-  - epoch: 10
-    # finally unfreeze everything
-    freeze_rgb: false
-    freeze_depth: false
-    freeze_decoder: false
-    lr_encoder: 1e-5
-    lr_decoder: 1e-4
+  # Phase 3: Epochs 26–40 → full fine-tuning
+  #- epoch: 26
+  #  freeze_rgb:     false
+  #  freeze_depth:   false
+  #  freeze_decoder: false
+  #  freeze_adapter: false
