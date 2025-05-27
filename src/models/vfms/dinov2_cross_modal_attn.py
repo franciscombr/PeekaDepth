@@ -8,9 +8,12 @@ class DepthPatchEncoder(nn.Module):
         self.patch_size = patch_size
         D = embed_dim
         self.depth_proj = nn.Sequential(
-            nn.Conv2d(3, D, kernel_size=patch_size, stride=patch_size)
+            nn.Conv2d(3, D, kernel_size=7, stride=2, padding=3),
+            nn.BatchNorm2d(D), nn.GELU(),
+            nn.Conv2d(D, D, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(D), nn.GELU(),
+            nn.Conv2d(D, D, kernel_size=patch_size, stride=patch_size)
         )
-
     def forward(self, x_depth ):
         # x_depth: (B,3,H,W)
         x = self.depth_proj(x_depth)               # (B, C, H/patch, W/patch)

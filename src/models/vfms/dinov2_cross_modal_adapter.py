@@ -6,29 +6,26 @@ class ConvTransposeDecoder(nn.Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
         self.decode = nn.Sequential(
-            # reduce feature depth & add nonlinearity
-            nn.Conv2d(in_channels, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.ReLU(inplace=True),
+          # 1) project down & non-linearize
+           nn.Conv2d(1024, 512, kernel_size=3, padding=1),
+           nn.BatchNorm2d(512), nn.ReLU(inplace=True),
 
-            # upsample ×2
-            nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
+           # 2) ×2 → 68×90
+           nn.ConvTranspose2d(512, 256, kernel_size=2, stride=2),
+           nn.BatchNorm2d(256), nn.ReLU(inplace=True),
 
-            # upsample ×2
-            nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+           # 3) ×2 → 136×180
+           nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2),
+           nn.BatchNorm2d(128), nn.ReLU(inplace=True),
 
-            # upsample ×2
-            nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
+           # 4) ×2 → 272×360
+           nn.ConvTranspose2d(128,  64, kernel_size=2, stride=2),
+           nn.BatchNorm2d(64), nn.ReLU(inplace=True),
 
-            # project to classes
-            nn.Conv2d(64, num_classes, kernel_size=1)
+           # 5) project to classes (still 272×360)
+           nn.Conv2d(64, num_classes, kernel_size=1)
         )
+
     def forward(self, x: torch.Tensor, out_size: tuple[int, int]):
         """
         x: (B, in_channels, h, w)
