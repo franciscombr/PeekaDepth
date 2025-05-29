@@ -64,7 +64,7 @@ class CrossAttentionAdapter(nn.Module):
         self.moddrop_p = 0
 
         self.rgb_norm = nn.LayerNorm(embed_dim)
-        self.deth_norm = nn.LayerNorm(embed_dim)        
+        self.depth_norm = nn.LayerNorm(embed_dim)        
         self.cross_attn = nn.MultiheadAttention(embed_dim, num_heads=num_heads, dropout=dropout, batch_first=True)
 
     def forward(self, rgb_seq, depth_seq):
