@@ -44,10 +44,14 @@ class DepthPatchEncoder(nn.Module):
         self.patch_size = patch_size
         D = embed_dim
         self.depth_proj = nn.Sequential(
-            nn.Conv2d(3, D, kernel_size=patch_size, stride=patch_size)
+            nn.Conv2d(3, D, kernel_size=7, stride=2, padding=3),
+            nn.BatchNorm2d(D), nn.GELU(),
+            nn.Conv2d(D, D, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(D), nn.GELU(),
+            nn.Conv2d(D, D, kernel_size=patch_size, stride=patch_size)
         )
 
-    def forward(self, x_depth ):
+    def forward(self, x_depth):
         # x_depth: (B,3,H,W)
         x = self.depth_proj(x_depth)               # (B, C, H/patch, W/patch)
         B, C, h, w = x.shape
@@ -58,7 +62,9 @@ class CrossAttentionAdapter(nn.Module):
     def __init__(self, embed_dim, num_heads=8, dropout=0.1):
         super().__init__()
         self.moddrop_p = 0
-        
+
+        self.rgb_norm = nn.LayerNorm(embed_dim)
+        self.deth_norm = nn.LayerNorm(embed_dim)        
         self.cross_attn = nn.MultiheadAttention(embed_dim, num_heads=num_heads, dropout=dropout, batch_first=True)
 
     def forward(self, rgb_seq, depth_seq):
@@ -70,12 +76,13 @@ class CrossAttentionAdapter(nn.Module):
             B, N, C = rgb_seq.shape
             keep_mask = (torch.rand(B, N, 1, device=rgb_seq.device) > self.moddrop_p).float()
             rgb_seq = rgb_seq * keep_mask
+
+        rgb_seq = self.rgb_norm(rgb_seq)
+        depth_seq = self.depth_norm(depth_seq)
         
         attn_out, _ = self.cross_attn(query=rgb_seq, key=depth_seq, value=depth_seq)
         x = rgb_seq + attn_out
         return x
-
-
 
 
 class DINOv2SegmentationModel(nn.Module):
