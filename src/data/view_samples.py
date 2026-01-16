@@ -70,7 +70,7 @@ def make_figure(dataset, idxs=None, save_path=None, dpi=300):
     vmin, vmax = np.percentile(all_depths, [1, 99]) 
     fig = plt.figure(figsize=(10, 4), dpi=dpi)
     gs  = fig.add_gridspec(2, 5, width_ratios=[1,1,1,1,0.7],
-                           wspace=0.06, hspace=0.05)
+                           wspace=0.06, hspace=-0.25)
 
     titles = ['Image', 'Ground Truth', 'Depth', 'HHA Depth']
 
@@ -141,10 +141,9 @@ def figure_aug_examples(base_ds, joint_tf,
     # figure size scales with number of indices
     fig_w   = cols * 2.2 * n_idx
     fig_h   = rows * 2.0
-    fig     = plt.figure(figsize=(fig_w, fig_h), dpi=dpi,
-                          constrained_layout=True)
+    fig     = plt.figure(figsize=(fig_w, fig_h), dpi=dpi)
     gs      = fig.add_gridspec(rows*2, cols*n_idx,
-                               wspace=0.05, hspace=0.05)
+                               wspace=0.05, hspace=-0.5)
 
     titles  = ["RGB", "Ground Truth", "Depth", "HHA Depth"]
 
@@ -199,7 +198,7 @@ def figure_aug_examples(base_ds, joint_tf,
 
 # ------------------------------------------------------------------
 # >>> use exactly as before:
-make_figure(train_ds, save_path='./paper_samples.png')
+make_figure(train_ds, save_path='./paper_samples.pdf')
 aug_tf   = JointAugment(output_size=(480, 640))
 aug_ds   = AugmentedDataset(train_ds, aug_tf)
-figure_aug_examples(train_ds, aug_tf, save_path="./aug_examples.png", seed=42, n_aug=2)
+figure_aug_examples(train_ds, aug_tf, save_path="./aug_examples.pdf", seed=42, n_aug=2)

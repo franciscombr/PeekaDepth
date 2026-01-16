@@ -11,6 +11,7 @@ data_root: "/nas-ctm01/datasets/public/NYUv2"
 model_module: "models.vfms.dinov2_linear_decoder"
 # Class name of the model to instantiate
 model_class: "DINOv2SegmentationModel"
+conv_decoder: False
 
 depth_rep: "hha"
 loss: "CrossEntropyLoss"
@@ -41,7 +42,7 @@ lr_scheduler:
   max_iters: 3600
 
 # Directory where checkpoints will be saved
-out_dir: "../results/checkpoints"
+out_dir: "./checkpoints"
 
 freeze_schedule:
   - epoch: 1

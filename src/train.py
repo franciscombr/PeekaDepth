@@ -4,6 +4,7 @@ import argparse
 import importlib
 from typing import Dict
 import yaml
+import random
 
 import torch
 import torch.nn as nn
@@ -232,6 +233,7 @@ def main():
     augmentation = cfg.get('augmentation', True)
     ignore_index = cfg.get('ignore_index', 0)
 
+    random.seed(42)
     # Device setup
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 

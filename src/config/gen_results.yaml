@@ -1,29 +1,24 @@
 models:
 
-  - name: "Cross Modal Attention (+Finetune)"
-    model_module: "models.vfms.dinov2_cross_modal_attn"
+  - name: "RGB+Fine-tune "
+    model_module: "models.vfms.dinov2_conv_decoder"
     model_class: "DINOv2SegmentationModel"
-    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_conv_decoder_noble-dew-171_best.pth"
     backbone: "dinov2_vitl14"
     out_classes: 14
  
-  - name: "Cross Modal Attention (+Finetune)"
-    model_module: "models.vfms.dinov2_cross_modal_attn"
+  - name: "CMAtention"
+    model_module: "models.vfms.dinov2_cross_modal_adapter"
     model_class: "DINOv2SegmentationModel"
-    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_adapter_legendary-pond-174_best.pth"
+    backbone: "dinov2_vitl14"
+    out_classes: 14
+
+  - name: "CMA+tweaks"
+    model_module: "models.vfms.dinov2_cross_modal_adapter"
+    model_class: "DINOv2SegmentationModel"
+    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_adapter_honest-plasma-175_best.pth"
     backbone: "dinov2_vitl14"
     out_classes: 14
   
-  - name: "Cross Modal Attention (+Finetune)"
-    model_module: "models.vfms.dinov2_cross_modal_attn"
-    model_class: "DINOv2SegmentationModel"
-    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
-    backbone: "dinov2_vitl14"
-    out_classes: 14
   
-  - name: "Cross Modal Attention (+Finetune)"
-    model_module: "models.vfms.dinov2_cross_modal_attn"
-    model_class: "DINOv2SegmentationModel"
-    checkpoint_path: "./results/checkpoints/models.vfms.dinov2_cross_modal_attn_final.pth"
-    backbone: "dinov2_vitl14"
-    out_classes: 14

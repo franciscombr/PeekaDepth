@@ -31,7 +31,7 @@ def compute_samples_per_cls(loader, num_classes, ignore_index=0):
         counts.update(tgt.tolist())
         total_pixels += tgt.size
 
-    freqs = np.array([ counts[i] for i in range(num_classes) ], dtype=np.float64)
+    freqs = np.array([ counts[i] for i in range(num_classes) ], dtype=np.float64)/total_pixels
     return torch.from_numpy(freqs).float()
 
 if __name__ == "__main__":
@@ -56,5 +56,6 @@ if __name__ == "__main__":
                         shuffle=True, num_workers=8, pin_memory=True)
 
 
-    weights = compute_mfb_weights(train_ld, 14, ignore_index=0)
-    print(weights)
+#    weights = compute_mfb_weights(train_ld, 14, ignore_index=0)
+#    print(weights)
+    print(compute_samples_per_cls(train_ds,14,None))

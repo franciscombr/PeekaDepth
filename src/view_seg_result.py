@@ -10,6 +10,8 @@ import torch
 from torchvision import transforms
 from torch.utils.data import DataLoader
 import math
+random.seed(41)
+plt.rcParams["font.family"] = "Times New Roman"
 
 from nyuv2 import NYUv2
 
@@ -126,7 +128,8 @@ def main():
     fig, axes = plt.subplots(
         total_rows, max_cols,
         figsize=(3 * max_cols, 3 * total_rows),
-        dpi=150
+        dpi=150,
+        gridspec_kw={ 'wspace': 0.06, 'hspace':-0.25}
     )
 
     # Row 0: RGB | HHA | GT
@@ -136,7 +139,7 @@ def main():
         ax = axes[0, col]
         if col < len(orig_imgs):
             ax.imshow(orig_imgs[col])
-            ax.set_title(orig_titles[col], fontsize=10)
+            ax.set_title(orig_titles[col], fontsize=15)
         ax.axis("off")
 
     # Rows 1…end: one cell per model (wrap at 3 per row)
@@ -145,7 +148,7 @@ def main():
         col = idx % max_cols
         ax  = axes[row, col]
         ax.imshow(pred_rgb)
-        ax.set_title(name, fontsize=9)
+        ax.set_title(name, fontsize=15)
         ax.axis("off")
 
     # blank out any unused “tail” cells
