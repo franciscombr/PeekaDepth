@@ -7,7 +7,7 @@ segmentation on NYUv2. It includes baselines (U-Net variants) and DINOv2-based
 fusion models, plus utilities for HHA depth encoding, visualization, and
 training metrics.
 
-![Qualitative result](pred_vs_gt.png)
+![Qualitative result](seg_res_1.pdf)
 
 ## Highlights
 - Multiple RGB-D fusion styles: early/mid fusion, cross-modal attention, adapters
