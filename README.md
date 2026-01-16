@@ -7,8 +7,6 @@ segmentation on NYUv2. It includes baselines (U-Net variants) and DINOv2-based
 fusion models, plus utilities for HHA depth encoding, visualization, and
 training metrics.
 
-![Qualitative result](seg_res_1.pdf)
-
 ## Highlights
 - Multiple RGB-D fusion styles: early/mid fusion, cross-modal attention, adapters
 - NYUv2 dataset wrapper and optional HHA depth encoding
@@ -58,9 +56,6 @@ python src/view_seg_result.py -c src/config/gen_results.yaml -i 0 -o out.png
 ## Results & Plots
 Training curves and summaries live in `results/plots/`.
 
-![Validation mIoU](results/plots/val_mIoU.png)
-![Training loss](results/plots/train_loss.png)
-![Augmentations](aug_examples.png)
 
 ## Repository layout
 - `src/`: models, training, data pipeline, metrics
