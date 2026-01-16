@@ -1,8 +1,8 @@
-# RGBD-Align
+# PeekaDepth
 
 **RGB + Depth, best friends for semantic segmentation.**
 
-RGBD-Align is a PyTorch project that explores RGB-D fusion for semantic
+PeekaDepth is a PyTorch project that explores RGB-D fusion for semantic
 segmentation on NYUv2. It includes baselines (U-Net variants) and DINOv2-based
 fusion models, plus utilities for HHA depth encoding, visualization, and
 training metrics.
